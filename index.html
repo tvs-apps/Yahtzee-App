@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Yahtzee Scorekeeper</title>
 
-<!-- PWA Support -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#007acc">
 <meta name="mobile-web-app-capable" content="yes">
@@ -26,7 +25,8 @@ button:hover { background: #005ea3; }
 .category-label { flex: 1; }
 .score-input, select { width: 80px; text-align: center; }
 .quick-buttons { display: flex; gap: 4px; margin-left: 6px; flex-wrap: wrap; }
-#footer { position: sticky; bottom: 0; background: #f9f9f9; padding: 10px; text-align: center; box-shadow: 0 -2px 6px rgba(0,0,0,0.1); display:none;}
+#footer { position: sticky; bottom: 0; background: #f9f9f9; padding: 10px; text-align: center; box-shadow: 0 -2px 6px rgba(0,0,0,0.1); display:none; }
+#runningTotals { display: block; margin: 10px auto; padding: 10px; background: #eee; border-radius: 8px; font-weight: bold; color: black; }
 .totals { font-weight: bold; margin-top: 8px; }
 #statsDashboard { display: none; max-width: 500px; margin: 20px auto; }
 .stat-card { background: #007acc; color: white; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
@@ -68,9 +68,8 @@ button[disabled] { opacity: 0.5; cursor: default; }
 
 <div id="playerCardContainer" style="display:none"></div>
 
-<div id="runningTotals" style="display:none; max-width:500px; margin:10px auto; padding:10px; background:#eee; border-radius:8px; font-weight:bold;"></div>
-
 <div id="footer">
+  <div id="runningTotals"></div>
   <button onclick="showEndGameModal()">End Game</button>
 </div>
 
@@ -86,7 +85,6 @@ button[disabled] { opacity: 0.5; cursor: default; }
   </div>
 </div>
 
-<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore-compat.js"></script>
 
@@ -167,9 +165,10 @@ function movePlayerDown(i){ if(i===players.length-1) return; [players[i+1],playe
 function startGame(){
   if(players.length===0) return alert("Add at least one player");
   turnMode=true; currentPlayerIndex=0;
+  hideStats();
   document.getElementById("playerSetup").style.display="none";
   document.getElementById("playerCardContainer").style.display="block";
-  document.getElementById("footer").style.display="block";
+  document.getElementById("footer").style.display="flex";
   renderPlayerCard();
 }
 
@@ -239,7 +238,6 @@ function renderPlayerCard(){
   card.appendChild(totalsDiv);
 
   const runningDiv = document.getElementById("runningTotals");
-  runningDiv.style.display = "block";
   runningDiv.innerText = players.map(p=>{
     const upper = ["Aces","Twos","Threes","Fours","Fives","Sixes"].reduce((s,c)=>s+(p.scores[c]||0),0);
     const bonus = upper>=63?35:0;
@@ -303,13 +301,23 @@ function showEndGameModal(){ document.getElementById("endGameModal").style.displ
 function closeEndGameModal(){ document.getElementById("endGameModal").style.display="none"; }
 function endGame(save){
   closeEndGameModal();
-  const resultsText = players.map(p=>{
+  const getGrandTotal = (p) => {
     const upper = ["Aces","Twos","Threes","Fours","Fives","Sixes"].reduce((s,c)=>s+(p.scores[c]||0),0);
     const bonus = upper>=63?35:0;
     const lower = ["3 of a Kind","4 of a Kind","Full House","Small Straight","Large Straight","Yahtzee","Yahtzee Bonus","Chance"].reduce((s,c)=>s+(p.scores[c]||0),0);
-    return `${p.name}: ${upper+bonus+lower}`;
+    return upper+bonus+lower;
+  };
+  
+  const sortedPlayers = [...players].sort((a, b) => getGrandTotal(b) - getGrandTotal(a));
+  
+  const resultsText = sortedPlayers.map(p => {
+    const total = getGrandTotal(p);
+    return `${p.name}: ${total}`;
   }).join('\n');
-
+  
+  const winner = sortedPlayers[0];
+  const winnerMessage = `🎉 Congratulations, ${winner.name}! 🎉\n\nYou are the Yahtzee master!`;
+  
   if(save){
     const result=players.map(p=>({name:p.name,scores:p.scores}));
     gameHistory.push({date:new Date(),result});
@@ -317,13 +325,12 @@ function endGame(save){
     db.collection("yahtzeeGames").add({date:new Date(),result});
   }
 
-  alert(`🎉 Congratulations! 🎉\n\nFinal Scores:\n${resultsText}`);
+  alert(`${winnerMessage}\n\nFinal Scores:\n${resultsText}`);
 
   players=[]; currentPlayerIndex=0; turnMode=false; yahtzeeBonusUsedThisTurn=false;
   document.getElementById("playerSetup").style.display="flex";
   document.getElementById("playerCardContainer").style.display="none";
   document.getElementById("footer").style.display="none";
-  document.getElementById("runningTotals").style.display="none";
   renderPlayerList();
   updateStatsDashboard();
 }
@@ -376,12 +383,6 @@ function updateStatsDashboard(){
   const statsDiv = document.getElementById("statsDashboard");
   statsDiv.innerHTML = "";
 
-  const deleteBtn = document.createElement("button");
-  deleteBtn.innerText = "Delete All Game Data";
-  deleteBtn.className = "dashboard-btn";
-  deleteBtn.onclick = clearGameData;
-  statsDiv.appendChild(deleteBtn);
-
   const stats = calculateStats();
   for(const player in stats){
     const s = stats[player];
@@ -421,10 +422,27 @@ function updateStatsDashboard(){
     header.addEventListener("click", () => { content.style.display = content.style.display === "none" ? "block" : "none"; });
     statsDiv.appendChild(card);
   }
+
+  const deleteBtn = document.createElement("button");
+  deleteBtn.innerText = "Delete All Game Data";
+  deleteBtn.className = "dashboard-btn";
+  deleteBtn.onclick = clearGameData;
+  statsDiv.appendChild(deleteBtn);
 }
 
-function showStats(){ document.getElementById("statsDashboard").style.display="block"; updateStatsDashboard(); }
-function hideStats(){ document.getElementById("statsDashboard").style.display="none"; }
+function hidePlayerCardContainer(){
+  document.getElementById("playerCardContainer").style.display="none";
+  document.getElementById("footer").style.display="none";
+}
+
+function showStats(){ 
+  hidePlayerCardContainer();
+  document.getElementById("statsDashboard").style.display="block"; 
+  updateStatsDashboard(); 
+}
+function hideStats(){ 
+  document.getElementById("statsDashboard").style.display="none"; 
+}
 
 function clearGameData(){
   if(confirm("Wipe all game history?")){
