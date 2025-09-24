@@ -30,6 +30,23 @@ button:hover { background: #005ea3; }
 #statsDashboard { display: none; max-width: 500px; margin: 20px auto; }
 .stat-card { background: #007acc; color: white; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
 .stat-card h3 { margin: 0 0 10px 0; text-align: center; cursor: pointer; }
+.stat-card button {
+  border: 2px solid #d9534f;  /* bright red border */
+  background: #fff;            /* white background */
+  color: #d9534f;              /* red text */
+  font-weight: bold;
+  padding: 6px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 6px;
+  width: 100%;
+  transition: background 0.2s, color 0.2s;
+}
+
+.stat-card button:hover {
+  background: #d9534f;
+  color: white;
+}
 .stat-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 14px; }
 .player-list-item { display:flex; justify-content:space-between; align-items:center; gap:4px; }
 .modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; z-index:1000; }
@@ -345,8 +362,12 @@ function toggleStats(name){
   details.style.display=details.style.display==="none"?"block":"none";
 }
 function updateStatsDashboard(){
-  const dash=document.getElementById("statsDashboard"); dash.innerHTML="";
-  if(gameHistory.length===0){ dash.innerHTML="<p>No game data yet.</p>"; return; }
+  const dash=document.getElementById("statsDashboard"); 
+  dash.innerHTML="";
+  if(gameHistory.length===0){ 
+    dash.innerHTML="<p>No game data yet.</p>"; 
+    return; 
+  }
   const stats={};
   gameHistory.forEach(game=>{
     game.result.forEach(p=>{
@@ -368,6 +389,8 @@ function updateStatsDashboard(){
     const high=Math.max(...totals.map(r=>r.total));
     totals.forEach(r=>{ if(r.total===high) stats[r.name].wins++; });
   });
+
+  // render per-player cards
   Object.keys(stats).forEach(name=>{
     const s=stats[name];
     const avg=Math.round(s.totalScore/s.games);
@@ -379,21 +402,60 @@ function updateStatsDashboard(){
         <div class="stat-item"><span>Wins</span><span>${s.wins}</span></div>
         <div class="stat-item"><span>Yahtzees</span><span>${s.yahtzees}</span></div>
         <div class="stat-item"><span>Average Score</span><span>${avg}</span></div>
-        <button onclick="resetStats('${name}')">Delete All Data</button>
+        <button onclick="resetStats('${name}')">Delete This Player’s Data</button>
       </div>`;
     dash.appendChild(card);
   });
+
+  // add global delete button
+  const delBtn=document.createElement("button");
+  delBtn.textContent="Delete All Data";
+  delBtn.style.marginTop="10px";
+  delBtn.onclick=()=>{ resetAllStats(); };
+  dash.appendChild(delBtn);
 }
-function resetStats(name){
-  gameHistory=gameHistory.filter(game=>!game.result.find(p=>p.name===name));
-  localStorage.setItem("yahtzeeGameHistory",JSON.stringify(gameHistory));
-  db.collection("yahtzeeGames").get().then(snapshot=>{
-    snapshot.forEach(doc=>{
-      if(doc.data().result.find(p=>p.name===name)){ db.collection("yahtzeeGames").doc(doc.id).delete(); }
+
+function resetStats(name) {
+  if (!confirm(`Delete all data for ${name}?`)) return;
+
+  // Update local memory
+  gameHistory = gameHistory.map(game => {
+    return {
+      ...game,
+      result: game.result.filter(p => p.name !== name)
+    };
+  }).filter(game => game.result.length > 0); // remove empty games
+
+  localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
+
+  // Update Firestore
+  db.collection("yahtzeeGames").get().then(snapshot => {
+    snapshot.forEach(doc => {
+      let data = doc.data();
+      let newResult = data.result.filter(p => p.name !== name);
+      if (newResult.length === 0) {
+        // delete game if no players left
+        db.collection("yahtzeeGames").doc(doc.id).delete();
+      } else {
+        // update game with remaining players
+        db.collection("yahtzeeGames").doc(doc.id).update({ result: newResult });
+      }
     });
+  });
+
+  updateStatsDashboard();
+}
+
+function resetAllStats(){
+  if(!confirm("Are you sure you want to delete ALL game data?")) return;
+  gameHistory=[];
+  localStorage.removeItem("yahtzeeGameHistory");
+  db.collection("yahtzeeGames").get().then(snapshot=>{
+    snapshot.forEach(doc=>{ db.collection("yahtzeeGames").doc(doc.id).delete(); });
   });
   updateStatsDashboard();
 }
+
 </script>
 
 <script>
