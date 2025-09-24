@@ -415,16 +415,20 @@ function startGame() {
   document.getElementById("playerSetup").style.display = "none";
   document.getElementById("playerCardContainer").style.display = "block";
   document.getElementById("footer").style.display = "flex";
-  renderPlayerCard();
+  renderPlayerCard(false);
 }
 
 // --- Scorecard Rendering ---
-function renderPlayerCard() {
+function renderPlayerCard(animateCard = true) {
   const container = document.getElementById("playerCardContainer");
   container.innerHTML = "";
   const player = players[currentPlayerIndex];
   const card = document.createElement("div");
-  card.className = "score-card player-card-transition";
+  card.className = "score-card";
+  // Apply animation only when it's a new turn and there's more than one player.
+  if (animateCard && players.length > 1) {
+    card.classList.add("player-card-transition");
+  }
   card.style.background = player.color;
   card.innerHTML = `<h2>${player.name}</h2>`;
 
@@ -513,7 +517,7 @@ function incrementYahtzeeBonus() {
   player.scores["Yahtzee Bonus"] = (player.scores["Yahtzee Bonus"] || 0) + 100;
   player.yahtzeeBonusCount = (player.yahtzeeBonusCount || 0) + 1;
   yahtzeeBonusUsedThisTurn = true;
-  renderPlayerCard();
+  renderPlayerCard(false); // Do not animate on bonus
 }
 
 function undoScore() {
@@ -526,7 +530,7 @@ function undoScore() {
   if (cat === "Yahtzee Bonus") player.yahtzeeBonusCount = Math.max(0, player.yahtzeeBonusCount - 1);
   yahtzeeBonusUsedThisTurn = yahtzeeBonusUsedPrev;
   lastAction = null;
-  renderPlayerCard();
+  renderPlayerCard(false); // Do not animate on undo
 }
 
 function nextPlayer() { 
@@ -879,4 +883,5 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
 
