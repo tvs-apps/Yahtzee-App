@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!-- PWA Support -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#007acc">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Yahtzee Scorekeeper">
+<link rel="apple-touch-icon" href="icons/icon-192x192.png">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Yahtzee Scorekeeper</title>
+<style>
+body { font-family: Arial, sans-serif; background: #f5f5f5; margin: 0; padding: 0; }
+h1 { text-align: center; margin: 20px 0; }
+#playerSetup { max-width: 500px; margin: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+input, select, button { font-size: 16px; padding: 8px; border-radius: 6px; border: 1px solid #ccc; }
+button { background: #007acc; color: white; cursor: pointer; border: none; }
+button:hover { background: #005ea3; }
+.score-card { border-radius: 10px; padding: 12px; margin: 10px auto; max-width: 480px; color:white; }
+.category-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,0.3); }
+.category-row.locked { background: rgba(0,0,0,0.2); color: #ccc; }
+.category-label { flex: 1; }
+.score-input, select { width: 80px; text-align: center; }
+.quick-buttons { display: flex; gap: 4px; margin-left: 6px; flex-wrap: wrap; }
+#footer { position: sticky; bottom: 0; background: #f9f9f9; padding: 10px; text-align: center; box-shadow: 0 -2px 6px rgba(0,0,0,0.1); display:none;}
+.totals { font-weight: bold; margin-top: 8px; }
+#statsDashboard { display: none; max-width: 500px; margin: 20px auto; }
+.stat-card { background: #007acc; color: white; border-radius: 10px; padding: 12px; margin-bottom: 10px; }
+.stat-card h3 { margin: 0 0 10px 0; text-align: center; cursor: pointer; }
+.stat-item { display: flex; justify-content: space-between; padding: 2px 0; font-size: 14px; }
+.player-list-item { display:flex; justify-content:space-between; align-items:center; gap:4px; }
+.modal-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); display:none; justify-content:center; align-items:center; z-index:1000; }
+.modal { background:white; padding:20px; border-radius:10px; max-width:320px; text-align:center; box-shadow:0 4px 8px rgba(0,0,0,0.2); }
+.modal button { width: 100%; margin: 6px 0; }
+</style>
+</head>
+<body>
+
+<h1>Yahtzee Scorekeeper</h1>
+
+<div id="playerSetup">
+  <input type="text" id="playerName" placeholder="Enter player name">
+  <button onclick="addPlayer()">Add Player</button>
+  <div id="playerList"></div>
+  <button onclick="startGame()">Start Game</button>
+  <button onclick="showStats()">Show Stats</button>
+  <button onclick="hideStats()">Hide Stats</button>
+</div>
+
+<div id="playerCardContainer" style="display:none"></div>
+
+<div id="footer">
+  <button onclick="showEndGameModal()">End Game</button>
+</div>
+
+<div id="statsDashboard"></div>
+
+<div id="endGameModal" class="modal-overlay">
+  <div class="modal">
+    <h3>End Game</h3>
+    <p>What would you like to do?</p>
+    <button onclick="endGame(false)">End Without Saving</button>
+    <button onclick="endGame(true)">End & Save</button>
+    <button onclick="closeEndGameModal()">Cancel</button>
+  </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore-compat.js"></script>
+
+<script>
+// Firebase setup
+const firebaseConfig = { apiKey:"YOUR_API_KEY", authDomain:"YOUR_PROJECT_ID.firebaseapp.com", projectId:"YOUR_PROJECT_ID" };
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+db.enablePersistence().catch(err => console.log("Firestore persistence error:", err));
+
+const categories = [
+  "Aces","Twos","Threes","Fours","Fives","Sixes",
+  "3 of a Kind","4 of a Kind","Full House","Small Straight","Large Straight",
+  "Yahtzee","Yahtzee Bonus","Chance"
+];
+const fixedValueCategories = {"Full House":[25],"Small Straight":[30],"Large Straight":[40],"Yahtzee":[50]};
+let players = [];
+let gameHistory = [];
+let currentPlayerIndex = 0;
+let turnMode = false;
+let lastAction = null;
+let pendingYahtzeeBonus = false;
+let yahtzeeBonusUsedThisTurn = false;
+
+// Load history
+if(localStorage.getItem("yahtzeeGameHistory")){
+  gameHistory = JSON.parse(localStorage.getItem("yahtzeeGameHistory"));
+}
+db.collection("yahtzeeGames").onSnapshot(snapshot=>{
+  gameHistory = snapshot.docs.map(doc => doc.data());
+  localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
+  updateStatsDashboard();
+});
+
+// --- Player management ---
+function randomColor(){ const r=Math.floor(Math.random()*150)+50; const g=Math.floor(Math.random()*150)+50; const b=Math.floor(Math.random()*150)+50; return `rgb(${r},${g},${b})`; }
+function addPlayer(){
+  const name = document.getElementById("playerName").value.trim();
+  if(!name) return;
+  players.push({name,scores:{},locked:{},color:randomColor(), yahtzeeBonusCount:0});
+  document.getElementById("playerName").value="";
+  renderPlayerList();
+}
+function removePlayer(i){ players.splice(i,1); renderPlayerList(); }
+function renderPlayerList(){
+  const list = document.getElementById("playerList");
+  list.innerHTML="";
+  players.forEach((p,i)=>{
+    const div = document.createElement("div");
+    div.className="player-list-item";
+    div.innerHTML=`${i+1}. ${p.name} 
+      <span>
+        <button onclick="movePlayerUp(${i})">↑</button>
+        <button onclick="movePlayerDown(${i})">↓</button>
+        <button onclick="removePlayer(${i})">✖</button>
+      </span>`;
+    list.appendChild(div);
+  });
+}
+function movePlayerUp(i){ if(i===0) return; [players[i-1],players[i]]=[players[i],players[i-1]]; renderPlayerList(); }
+function movePlayerDown(i){ if(i===players.length-1) return; [players[i+1],players[i]]=[players[i+1],players[i]]; renderPlayerList(); }
+
+// --- Game Start ---
+function startGame(){
+  if(players.length===0) return alert("Add at least one player");
+  turnMode=true; currentPlayerIndex=0;
+  document.getElementById("playerSetup").style.display="none";
+  document.getElementById("playerCardContainer").style.display="block";
+  document.getElementById("footer").style.display="block";
+  renderPlayerCard();
+}
+
+// --- Scorecard Rendering ---
+function renderPlayerCard(){
+  const container = document.getElementById("playerCardContainer");
+  container.innerHTML="";
+  const player = players[currentPlayerIndex];
+  const card = document.createElement("div");
+  card.className="score-card";
+  card.style.background = player.color;
+  card.innerHTML=`<h2>${player.name}</h2>`;
+
+  categories.forEach(cat=>{
+    const locked = player.locked[cat];
+    const row = document.createElement("div");
+    row.className="category-row" + (locked?" locked":"");
+    let inner=`<div class="category-label">${cat}</div>`;
+
+    if(["Aces","Twos","Threes","Fours","Fives","Sixes"].includes(cat)){
+      const num=["Aces","Twos","Threes","Fours","Fives","Sixes"].indexOf(cat)+1;
+      const maxVal=num*5;
+      if(locked){ inner+=`<div>${player.scores[cat]||0}</div>`; }
+      else{
+        inner+=`<div class="quick-buttons">${[2,3,4].map(mult=>{ const val=mult*num; return val<=maxVal?`<button onclick="updateScore('${cat}',${val})">${val}</button>`:""; }).join('')}</div>`;
+        let options = `<option value="">--</option><option value="${num}">${num}</option><option value="${maxVal}">${maxVal}</option>`;
+        inner+=`<select onchange="updateScore('${cat}',this.value)">${options}</select>`;
+        inner+=`<button onclick="updateScore('${cat}',0)">Scratch</button>`;
+      }
+    }
+    else if(["3 of a Kind","4 of a Kind"].includes(cat)){
+      if(locked){ inner+=`<div>${player.scores[cat]||0}</div>`; }
+      else{
+        let options="<option value=''>--</option>";
+        for(let i=0;i<=30;i++) options+=`<option value="${i}">${i}</option>`;
+        inner+=`<select onchange="updateScore('${cat}',this.value)">${options}</select>`;
+        inner+=`<button onclick="updateScore('${cat}',0)">Scratch</button>`;
+      }
+    }
+    else if(cat==="Chance"){
+      if(locked){ inner+=`<div>${player.scores[cat]||0}</div>`; }
+      else{
+        let options="<option value=''>--</option>";
+        for(let i=1;i<=30;i++) options+=`<option value="${i}">${i}</option>`;
+        inner+=`<select onchange="updateScore('${cat}',this.value)">${options}</select>`;
+      }
+    }
+    else if(fixedValueCategories[cat]){
+      if(locked){ inner+=`<div>${player.scores[cat]||0}</div>`; }
+      else{ inner+=`<div class="quick-buttons">${fixedValueCategories[cat].map(v=>`<button onclick="updateScore('${cat}',${v})">${v}</button>`).join('')}<button onclick="updateScore('${cat}',0)">Scratch</button></div>`; }
+    }
+    else if(cat==="Yahtzee Bonus"){
+      let xMarks = "X".repeat(player.yahtzeeBonusCount || 0);
+      // Enable only if player has scored Yahtzee previously and hasn't used bonus this turn
+      if(player.locked["Yahtzee"] !== true || yahtzeeBonusUsedThisTurn || locked){
+        inner += `<div>${player.scores[cat]||0} ${xMarks} (locked)</div>`;
+      } else {
+        inner += `<button onclick="incrementYahtzeeBonus()">+100</button> <span>${xMarks}</span>`;
+      }
+    }
+
+    row.innerHTML=inner;
+    card.appendChild(row);
+  });
+
+  const upperTotal = ["Aces","Twos","Threes","Fours","Fives","Sixes"].reduce((s,c)=>s+(player.scores[c]||0),0);
+  const bonus = upperTotal>=63?35:0;
+  const lowerTotal = ["3 of a Kind","4 of a Kind","Full House","Small Straight","Large Straight","Yahtzee","Yahtzee Bonus","Chance"].reduce((s,c)=>s+(player.scores[c]||0),0);
+  const grandTotal = upperTotal+bonus+lowerTotal;
+  const totalsDiv = document.createElement("div");
+  totalsDiv.className="totals";
+  totalsDiv.innerText=`Upper: ${upperTotal} Bonus: ${bonus} | Lower: ${lowerTotal} | Grand: ${grandTotal}`;
+  card.appendChild(totalsDiv);
+
+  card.innerHTML+=`<button onclick="undoScore()">Undo Last Input</button>`;
+  container.appendChild(card);
+}
+
+// --- Score Handling ---
+function updateScore(cat,val){
+  const player = players[currentPlayerIndex];
+  lastAction = {
+    playerIndex: currentPlayerIndex,
+    cat,
+    valOld: player.scores[cat] || 0,
+    yahtzeeBonusUsedPrev: yahtzeeBonusUsedThisTurn
+  };
+  if(val === "") return;
+
+  player.scores[cat] = parseInt(val) || 0;
+  player.locked[cat] = true;
+
+  // Unlock Yahtzee Bonus if first Yahtzee scored
+if(cat === "Yahtzee" && player.scores[cat] === 50){
+  player.locked["Yahtzee Bonus"] = false; // unlock bonus only if Yahtzee scored
+} else if(cat === "Yahtzee" && player.scores[cat] === 0){
+  player.locked["Yahtzee Bonus"] = true; // keep it locked if scratched
+}
+
+
+  // Move to next player automatically, unless a Yahtzee bonus is pending
+  if(cat !== "Yahtzee Bonus"){
+    yahtzeeBonusUsedThisTurn = false; // reset bonus usage
+    nextPlayer();
+  }
+
+  renderPlayerCard();
+}
+
+function incrementYahtzeeBonus(){
+  const player = players[currentPlayerIndex];
+  if(yahtzeeBonusUsedThisTurn) return; // only 1 bonus per turn
+  player.scores["Yahtzee Bonus"] = (player.scores["Yahtzee Bonus"] || 0) + 100;
+  player.yahtzeeBonusCount = (player.yahtzeeBonusCount || 0) + 1;
+  yahtzeeBonusUsedThisTurn = true; // lock bonus for this turn
+  renderPlayerCard();
+}
+
+function undoScore(){
+  if(!lastAction) return;
+  const {playerIndex,cat,valOld, yahtzeeBonusUsedPrev}=lastAction;
+  currentPlayerIndex=playerIndex;
+  const player = players[currentPlayerIndex];
+  player.scores[cat]=valOld;
+  player.locked[cat]=false;
+  if(cat==="Yahtzee Bonus") player.yahtzeeBonusCount = Math.max(0, player.yahtzeeBonusCount-1);
+  yahtzeeBonusUsedThisTurn = yahtzeeBonusUsedPrev;
+  lastAction=null;
+  renderPlayerCard();
+}
+
+function nextPlayer(){ 
+  yahtzeeBonusUsedThisTurn = false;
+  currentPlayerIndex=(currentPlayerIndex+1)%players.length; 
+  renderPlayerCard(); 
+}
+
+// --- End game modal ---
+function showEndGameModal(){ document.getElementById("endGameModal").style.display="flex"; }
+function closeEndGameModal(){ document.getElementById("endGameModal").style.display="none"; }
+function endGame(save){
+  closeEndGameModal();
+  if(save){
+    const result=players.map(p=>({name:p.name,scores:p.scores}));
+    gameHistory.push({date:new Date(),result});
+    localStorage.setItem("yahtzeeGameHistory",JSON.stringify(gameHistory));
+    db.collection("yahtzeeGames").add({date:new Date(),result});
+  }
+  players=[]; currentPlayerIndex=0; turnMode=false; pendingYahtzeeBonus=false; yahtzeeBonusUsedThisTurn=false;
+  document.getElementById("playerSetup").style.display="flex";
+  document.getElementById("playerCardContainer").style.display="none";
+  document.getElementById("footer").style.display="none";
+  renderPlayerList();
+  updateStatsDashboard();
+}
+
+// --- Stats ---
+function calculateStats(){
+  const stats={};
+  gameHistory.forEach(game=>{
+    const winnersScore=Math.max(...game.result.map(p=>Object.values(p.scores).reduce((a,b)=>a+b,0)));
+    game.result.forEach(p=>{
+      if(!stats[p.name]) stats[p.name]={games:0,wins:0,streak:0,maxStreak:0,totalPoints:0,totalGrand:0,highestScore:0,highestNoYahtzee:0,mostYahtzees:0,bonusCount:0,gamesWithYahtzee:0,scratchCounts:{}};
+      const s=stats[p.name]; s.games++;
+      const grandTotal=Object.values(p.scores).reduce((a,b)=>a+b,0);
+      if(grandTotal===winnersScore){ s.wins++; s.streak++; if(s.streak>s.maxStreak)s.maxStreak=s.streak; } else s.streak=0;
+      s.totalPoints+=grandTotal; s.totalGrand+=grandTotal;
+      if(grandTotal>s.highestScore) s.highestScore=grandTotal;
+      const noY = Object.entries(p.scores).filter(([cat])=>cat!=="Yahtzee"&&cat!=="Yahtzee Bonus").reduce((sum,[k,v])=>sum+v,0);
+      if(noY>s.highestNoYahtzee) s.highestNoYahtzee=noY;
+      const yahtzeesThisGame = Math.floor((p.scores.Yahtzee||0)/50)+Math.floor((p.scores["Yahtzee Bonus"]||0)/100);
+      s.mostYahtzees = Math.max(s.mostYahtzees,yahtzeesThisGame);
+      if((p.scores.Yahtzee||0)>0) s.gamesWithYahtzee++;
+      s.bonusCount += Math.floor((p.scores["Yahtzee Bonus"]||0)/100);
+      categories.forEach(cat=>{ if(!s.scratchCounts[cat]) s.scratchCounts[cat]=0; if(!p.scores[cat]||p.scores[cat]===0)s.scratchCounts[cat]++; });
+    });
+  });
+  return stats;
+}
+
+function updateStatsDashboard(){
+  const statsDiv = document.getElementById("statsDashboard");
+  statsDiv.innerHTML = "";
+
+  // Add Delete Data button
+  const deleteBtn = document.createElement("button");
+  deleteBtn.innerText = "Delete All Game Data";
+  deleteBtn.style.marginBottom = "10px";
+  deleteBtn.onclick = clearGameData;
+  statsDiv.appendChild(deleteBtn);
+
+  const stats = calculateStats();
+  for(const player in stats){
+    const s = stats[player];
+    const card = document.createElement("div");
+    card.className = "stat-card";
+
+    const header = document.createElement("h3");
+    header.innerText = player;
+
+    const content = document.createElement("div");
+    content.style.display = "none";
+
+    let inner = `<div class="stat-item"><span>Games:</span><span>${s.games}</span></div>`;
+    inner += `<div class="stat-item"><span>Wins:</span><span>${s.wins}</span></div>`;
+    inner += `<div class="stat-item"><span>Win %:</span><span>${((s.wins/s.games)*100).toFixed(1)}%</span></div>`;
+    inner += `<div class="stat-item"><span>Longest Streak:</span><span>${s.maxStreak}</span></div>`;
+    inner += `<div class="stat-item"><span>Total Points:</span><span>${s.totalPoints}</span></div>`;
+    inner += `<div class="stat-item"><span>Avg Grand Total:</span><span>${(s.totalGrand/s.games).toFixed(1)}</span></div>`;
+    inner += `<div class="stat-item"><span>Highest Score:</span><span>${s.highestScore}</span></div>`;
+    inner += `<div class="stat-item"><span>Highest w/o Yahtzee:</span><span>${s.highestNoYahtzee}</span></div>`;
+    inner += `<div class="stat-item"><span>Most Yahtzees in Game:</span><span>${s.mostYahtzees}</span></div>`;
+    inner += `<div class="stat-item"><span>Times Got Bonus:</span><span>${s.bonusCount}</span></div>`;
+    inner += `<div class="stat-item"><span>% Games w/ Yahtzee:</span><span>${((s.gamesWithYahtzee/s.games)*100).toFixed(1)}%</span></div>`;
+    const scratchCats = Object.entries(s.scratchCounts).sort((a,b)=>b[1]-a[1]);
+    inner += `<div class="stat-item"><span>Top Scratch:</span><span>${scratchCats[0]?scratchCats[0][0]:"-"}</span></div>`;
+    inner += `<div class="stat-item"><span>2nd Scratch:</span><span>${scratchCats[1]?scratchCats[1][0]:"-"}</span></div>`;
+
+    content.innerHTML = inner;
+    card.appendChild(header);
+    card.appendChild(content);
+
+    header.addEventListener("click", ()=> {
+      content.style.display = content.style.display === "none" ? "block" : "none";
+    });
+
+    statsDiv.appendChild(card);
+  }
+}
+
+function showStats(){ 
+  document.getElementById("statsDashboard").style.display="block"; 
+  updateStatsDashboard(); 
+}
+function hideStats(){ 
+  document.getElementById("statsDashboard").style.display="none"; 
+}
+function clearGameData(){
+  if(confirm("Wipe all game history?")){
+    gameHistory=[]; 
+    localStorage.removeItem("yahtzeeGameHistory");
+    db.collection("yahtzeeGames").get().then(snapshot=>{
+      snapshot.docs.forEach(doc=>doc.ref.delete());
+    });
+    updateStatsDashboard();
+  }
+}
+</script>
+<!-- Register Service Worker for offline support -->
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('service-worker.js')
+      .then(reg => console.log('Service Worker registered.', reg))
+      .catch(err => console.log('Service Worker registration failed:', err));
+  });
+}
+</script>
+</body>
+</html>
