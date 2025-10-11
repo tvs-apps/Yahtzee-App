@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Yahtzee Scorekeeper</title>
 
-<!-- PWA Support -->
+
+
+
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#007acc">
 <meta name="mobile-web-app-capable" content="yes">
@@ -13,875 +15,1809 @@
 <meta name="apple-mobile-web-app-title" content="Yahtzee Scorekeeper">
 <link rel="apple-touch-icon" href="icons/icon-192x192.png">
 
-<!-- D3.js for data visualization -->
-<script src="https://d3js.org/d3.v7.min.js"></script>
+
+
 
 <style>
-  :root {
-    --primary-color: #007acc;
-    --secondary-color: #005ea3;
-    --background-color: #f5f5f5;
-    --card-background: linear-gradient(135deg, #007acc 0%, #005ea3 100%);
-    --text-light: white;
-    --text-dark: #333;
-    --border-color: rgba(255,255,255,0.3);
-  }
-  body {
-    font-family: 'Arial', sans-serif;
-    background: var(--background-color);
-    margin: 0;
-    padding: 0;
-    color: var(--text-dark);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  h1 {
-    text-align: center;
-    margin: 20px 0;
-    color: var(--primary-color);
-  }
-  #playerSetup, .score-card {
-    max-width: 500px;
-    margin: auto;
-    padding: 20px;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    background: white;
-  }
-  #playerSetup {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-  }
-  input, select, button {
-    font-size: 16px;
-    padding: 10px;
-    border-radius: 8px;
-    border: 1px solid #ddd;
-    transition: all 0.3s ease;
-  }
-  button {
-    background: var(--primary-color);
-    color: var(--text-light);
-    cursor: pointer;
-    border: none;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  }
-  button:hover {
-    background: var(--secondary-color);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-  }
-  button[disabled] {
-    opacity: 0.5;
-    cursor: not-allowed;
-    box-shadow: none;
-  }
-  .score-card {
-    background: var(--card-background);
-    color: var(--text-light);
-    margin: 20px auto;
-  }
-  .score-card h2 {
-    text-align: center;
-    margin-top: 0;
-    margin-bottom: 20px;
-  }
-  .category-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 0;
-    border-bottom: 1px solid var(--border-color);
-  }
-  .category-row.locked {
-    background: rgba(0,0,0,0.15);
-    color: #ccc;
-  }
-  .category-label { flex: 1; }
-  .score-input, select {
-    width: 80px;
-    text-align: center;
-    background: white;
-    color: var(--text-dark);
-  }
-  .quick-buttons {
-    display: flex;
-    gap: 4px;
-    margin-left: 6px;
-  }
-  .quick-buttons button {
-    background: rgba(255,255,255,0.2);
-    padding: 4px 8px;
-  }
-  .quick-buttons button:hover {
-    background: rgba(255,255,255,0.4);
-  }
-  #footer {
-    position: sticky;
-    bottom: 0;
-    background: white;
-    padding: 15px;
-    text-align: center;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
-    display: none;
-  }
-  #footer-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-  }
-  #runningTotals {
-    display: block;
-    padding: 12px;
-    background: #eee;
-    border-radius: 8px;
-    font-weight: bold;
-    color: var(--text-dark);
-  }
-  .totals { font-weight: bold; margin-top: 15px; }
-  #statsDashboard {
-    display: none;
-    max-width: 500px;
-    margin: 20px auto;
-  }
-  .stat-card {
-    background: var(--card-background);
-    color: var(--text-light);
-    border-radius: 12px;
-    padding: 15px;
-    margin-bottom: 15px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-  }
-  .stat-card h3 {
-    margin: 0 0 10px 0;
-    text-align: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-  .stat-card h3:hover {
-    transform: scale(1.02);
-  }
-  .stat-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 4px 0;
-    font-size: 15px;
-    border-bottom: 1px dashed rgba(255,255,255,0.2);
-  }
-  .stat-item:last-child { border-bottom: none; }
-  .player-list-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    background: #f0f0f0;
-    padding: 8px;
-    border-radius: 6px;
-  }
-  .player-list-item span {
-    display: flex;
-    gap: 4px;
-  }
-  .player-list-item button {
-    padding: 4px 8px;
-    font-size: 14px;
-  }
-  .modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0,0,0,0.6);
-    display: none;
-    justify-content: center;
-    align-items: center;
-    z-index: 1000;
-  }
-  .modal {
-    background: white;
-    padding: 25px;
-    border-radius: 12px;
-    max-width: 320px;
-    text-align: center;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.2);
-    animation: fadeIn 0.3s ease;
-  }
-  .modal button {
-    width: 100%;
-    margin: 8px 0;
-  }
-  button.dashboard-btn {
-    background: #005ea3;
-    color: white;
-    padding: 10px 15px;
-    margin: 10px 0;
-  }
-  button.dashboard-btn:hover {
-    background: #003f6b;
-  }
-  .chart-container {
-    background: white;
-    border-radius: 12px;
-    padding: 15px;
-    margin-top: 15px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  }
-  .d3-tooltip {
-    position: absolute;
-    text-align: center;
-    padding: 8px;
-    font: 12px sans-serif;
-    background: #333;
-    color: white;
-    border-radius: 4px;
-    pointer-events: none;
-  }
+ :root {
+   --primary-color: #007acc;
+   --secondary-color: #005ea3;
+   --background-color: #f5f5f5;
+   --card-background: linear-gradient(135deg, #007acc 0%, #005ea3 100%);
+   --text-light: white;
+   --text-dark: #333;
+   --border-color: rgba(255,255,255,0.3);
+   --color-on-track: #fff;
+   --color-above: #4CAF50; /* Subtle green */
+   --color-below: #F44336; /* Subtle red */
+ }
+ body {
+   font-family: 'Arial', sans-serif;
+   background: var(--background-color);
+   margin: 0;
+   padding: 0;
+   color: var(--text-dark);
+   -webkit-font-smoothing: antialiased;
+   -moz-osx-font-smoothing: grayscale;
+   touch-action: pan-y; /* Allow vertical scroll, prevent browser swipe for navigation */
+ }
+ h1 {
+   text-align: center;
+   margin: 20px 0;
+   color: var(--primary-color);
+ }
+ #playerSetup, .score-card {
+   max-width: 500px;
+   margin: auto;
+   padding: 20px;
+   border-radius: 12px;
+   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+   background: white;
+   box-sizing: border-box;
+ }
+ #playerSetup {
+   display: flex;
+   flex-direction: column;
+   gap: 12px;
+ }
+ input, select, button {
+   font-size: 16px;
+   padding: 10px;
+   border-radius: 8px;
+   border: 1px solid #ddd;
+   transition: all 0.3s ease;
+ }
+ button {
+   background: var(--primary-color);
+   color: var(--text-light);
+   cursor: pointer;
+   border: none;
+   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+ }
+ button:hover {
+   background: var(--secondary-color);
+   box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+ }
+ button[disabled] {
+   opacity: 0.5;
+   cursor: not-allowed;
+   box-shadow: none;
+ }
+ .score-card {
+   background: var(--card-background);
+   color: var(--text-light);
+   margin: 20px auto;
+ }
+ .score-card h2 {
+   text-align: center;
+   margin-top: 0;
+   margin-bottom: 20px;
+ }
+ .category-row {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   padding: 10px 0;
+   border-bottom: 1px solid var(--border-color);
+ }
+ .category-row.locked {
+   background: rgba(0,0,0,0.15);
+   color: #ccc;
+ }
+ .category-label { flex: 1; }
+ .score-input, select {
+   width: 80px;
+   text-align: center;
+   background: white;
+   color: var(--text-dark);
+ }
+ .quick-buttons {
+   display: flex;
+   gap: 4px;
+   margin-left: 6px;
+ }
+ .quick-buttons button {
+   background: rgba(255,255,255,0.2);
+   padding: 4px 8px;
+ }
+ .quick-buttons button:hover {
+   background: rgba(255,255,255,0.4);
+ }
+ /* Conditional Coloring for Upper Section Scores */
+ .score-above { background-color: rgba(76, 175, 80, 0.7); } /* Green */
+ .score-below { background-color: rgba(244, 67, 54, 0.7); } /* Red */
+ .score-on-track { background-color: rgba(255, 255, 255, 0.2); } /* Default/White */
 
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-  .player-card-transition {
-    animation: cardSlideIn 0.5s ease-out;
-  }
-  @keyframes cardSlideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-  }
+
+ #footer {
+   position: sticky;
+   bottom: 0;
+   background: white;
+   padding: 15px;
+   text-align: center;
+   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+   display: none;
+   z-index: 50;
+ }
+ #footer-content {
+   display: flex;
+   flex-direction: column;
+   align-items: center;
+   gap: 12px;
+ }
+ #runningTotals {
+   display: block;
+   padding: 12px;
+   background: #eee;
+   border-radius: 8px;
+   font-weight: bold;
+   color: var(--text-dark);
+   width: 100%;
+   overflow-x: auto;
+   white-space: nowrap;
+ }
+ .totals { font-weight: bold; margin-top: 15px; }
+ /* Bonus Tracker Styling */
+ .bonus-tracker {
+   text-align: center;
+   padding: 8px;
+   margin: 10px 0;
+   border-radius: 6px;
+   background: rgba(0,0,0,0.2);
+   font-size: 1.1em;
+   font-weight: bold;
+ }
+ .bonus-tracker span.positive { color: var(--color-above); }
+ .bonus-tracker span.negative { color: var(--color-below); }
+
+
+ #statsDashboard {
+   display: none;
+   max-width: 500px;
+   margin: 20px auto;
+ }
+ .stat-card {
+   background: var(--card-background);
+   color: var(--text-light);
+   border-radius: 12px;
+   padding: 15px;
+   margin-bottom: 15px;
+   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+ }
+ .stat-card h3 {
+   margin: 0 0 10px 0;
+   text-align: center;
+   cursor: pointer;
+   transition: all 0.2s ease;
+ }
+ .stat-card h3:hover {
+   transform: scale(1.02);
+ }
+ .stat-item {
+   display: flex;
+   justify-content: space-between;
+   padding: 4px 0;
+   font-size: 15px;
+   border-bottom: 1px dashed rgba(255,255,255,0.2);
+ }
+ .stat-item:last-child { border-bottom: none; }
+ .player-list-item {
+   display: flex;
+   justify-content: space-between;
+   align-items: center;
+   gap: 8px;
+   background: #f0f0f0;
+   padding: 8px;
+   border-radius: 6px;
+ }
+ .player-list-item span {
+   display: flex;
+   gap: 4px;
+ }
+ .player-list-item button {
+   padding: 4px 8px;
+   font-size: 14px;
+ }
+  /* Recent Players Styling */
+ #recentPlayersList {
+   display: flex;
+   flex-wrap: wrap;
+   gap: 8px;
+   padding: 10px 0;
+   border-top: 1px solid #ddd;
+ }
+ #recentPlayersList button {
+   background: #e0e0e0;
+   color: var(--text-dark);
+   padding: 6px 10px;
+   font-size: 14px;
+ }
+
+
+ /* Hall of Fame Styling */
+ #hallOfFameList {
+   list-style: none;
+   padding: 0;
+   margin: 10px 0;
+ }
+ .hof-entry {
+   background: rgba(255, 255, 0, 0.15); /* Subtle gold tint */
+   color: var(--text-dark);
+   padding: 10px;
+   margin-bottom: 8px;
+   border-radius: 8px;
+   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+   cursor: pointer;
+   transition: background 0.2s;
+ }
+ .hof-entry:hover {
+   background: rgba(255, 255, 0, 0.3);
+ }
+ .hof-details {
+   display: flex;
+   justify-content: space-between;
+   font-weight: bold;
+ }
+ .hof-meta {
+   font-size: 0.8em;
+   color: #666;
+   margin-top: 4px;
+ }
+
+
+ /* Modal Styling */
+ .modal-overlay {
+   position: fixed;
+   top: 0;
+   left: 0;
+   width: 100%;
+   height: 100%;
+   background: rgba(0,0,0,0.8);
+   display: none;
+   justify-content: center;
+   align-items: center;
+   z-index: 1000;
+ }
+ .modal {
+   background: white;
+   padding: 25px;
+   border-radius: 12px;
+   max-width: 90%;
+   width: 400px;
+   text-align: center;
+   box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+   animation: fadeIn 0.3s ease;
+ }
+ .modal h3 { color: var(--primary-color); }
+ .modal button {
+   width: 100%;
+   margin: 8px 0;
+ }
+ button.dashboard-btn {
+   background: #005ea3;
+   color: white;
+   padding: 10px 15px;
+   margin: 10px 0;
+ }
+ button.dashboard-btn:hover {
+   background: #003f6b;
+ }
+  /* Chart Styling */
+ .chart-container-wrapper {
+   margin-top: 15px;
+   padding: 10px;
+   background: rgba(255, 255, 255, 0.9);
+   border-radius: 8px;
+   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+   color: var(--text-dark);
+ }
+ .chart-container-wrapper h4 {
+   margin-top: 0;
+   padding-bottom: 5px;
+   border-bottom: 1px solid #ddd;
+   font-size: 1.1em;
+ }
+ .d3-tooltip {
+   position: absolute;
+   text-align: center;
+   padding: 8px;
+   font: 12px sans-serif;
+   background: #333;
+   color: white;
+   border-radius: 4px;
+   pointer-events: none;
+   z-index: 1001;
+ }
+  /* D3 specific styling */
+ .bar { transition: fill 0.3s ease; }
+ .bar:hover { fill: #FFC107; } /* Highlight on hover */
+ .arc path { transition: fill 0.3s ease; }
+ .arc:hover path { opacity: 0.8; }
+ .win-bar { fill: #4CAF50; } /* Green for Wins */
+ .loss-bar { fill: #F44336; } /* Red for Losses */
+
+
+ @keyframes fadeIn {
+   from { opacity: 0; transform: translateY(-20px); }
+   to { opacity: 1; transform: translateY(0); }
+ }
+ .player-card-transition {
+   animation: cardSlideIn 0.5s ease-out;
+ }
+ @keyframes cardSlideIn {
+   from { transform: translateX(100%); opacity: 0; }
+   to { transform: translateX(0); opacity: 1; }
+ }
+
+
+ /* Swiping UI */
+ #swipeActions {
+   position: fixed;
+   bottom: 80px; /* Above the footer */
+   left: 50%;
+   transform: translateX(-50%);
+   display: none;
+   z-index: 100;
+ }
+ #swipeActions button {
+   background: rgba(0, 0, 0, 0.7);
+   color: white;
+   padding: 8px 15px;
+   border-radius: 50px;
+ }
 </style>
 </head>
 <body>
 
+
 <h1>Yahtzee Scorekeeper</h1>
 
+
 <div id="playerSetup">
-  <input type="text" id="playerName" placeholder="Enter player name">
-  <button id="addPlayerBtn" onclick="addPlayer()">Add Player</button>
-  <div id="playerList"></div>
-  <button id="startGameBtn" onclick="startGame()" disabled>Start Game</button>
-  <div style="display: flex; gap: 8px; margin-top: 10px;">
-    <button style="width: 50%;" onclick="showStats()">Show Stats</button>
-    <button style="width: 50%;" onclick="hideStats()">Hide Stats</button>
-  </div>
+ <input type="text" id="playerName" placeholder="Enter player name">
+ <button id="addPlayerBtn" onclick="addPlayer()">Add Player</button>
+ <div id="playerList"></div>
+ <button id="startGameBtn" onclick="startGame()" disabled>Start Game</button>
+ <div style="display: flex; gap: 8px; margin-top: 10px;">
+   <button style="width: 50%;" onclick="showStats()">View Stats</button>
+   <button style="width: 50%;" onclick="hideStats()">Hide Stats</button>
+ </div>
+  <div id="recentPlayers" style="margin-top: 15px;">
+   <h4 style="margin: 0 0 5px 0; color: var(--secondary-color);">Recent Players:</h4>
+   <div id="recentPlayersList">No recent players.</div>
+ </div>
+  <!-- Updated Button for Refresh/Sync with new color -->
+ <button style="background: #673ab7; margin-top: 20px; width: 50%; align-self: center;" onclick="refreshAndSyncGame()">Update and Refresh App</button>
 </div>
+
 
 <div id="playerCardContainer" style="display:none"></div>
 
-<div id="footer">
-  <div id="footer-content">
-    <div id="runningTotals"></div>
-    <button onclick="showConfirmModal('End Game', 'Are you sure you want to end the current game?', () => endGame(true), () => endGame(false))">End Game</button>
-  </div>
+
+<div id="swipeActions">
+ <button id="returnToTurnBtn" onclick="returnToTurn()">Return to Turn</button>
 </div>
+
+
+<div id="footer">
+ <div id="footer-content">
+   <div id="runningTotals"></div>
+   <button onclick="showConfirmModal('End Game', 'Are you sure you want to end the current game?', () => endGame(true), () => endGame(false))">End Game</button>
+ </div>
+</div>
+
 
 <div id="statsDashboard"></div>
 
+
+
+
+<!-- Global Alert Modal -->
 <div id="alertModal" class="modal-overlay">
-  <div class="modal">
-    <h3 id="alertTitle"></h3>
-    <p id="alertMessage"></p>
-    <button onclick="closeAlertModal()">OK</button>
-  </div>
+ <div class="modal">
+   <h3 id="alertTitle"></h3>
+   <p id="alertMessage"></p>
+   <button onclick="closeAlertModal()">OK</button>
+ </div>
 </div>
 
+
+<!-- Global Confirmation Modal -->
 <div id="confirmModal" class="modal-overlay">
-  <div class="modal">
-    <h3 id="confirmTitle"></h3>
-    <p id="confirmMessage"></p>
-    <button id="confirmYesBtn">Yes</button>
-    <button id="confirmNoBtn" class="dashboard-btn">No</button>
-  </div>
+ <div class="modal">
+   <h3 id="confirmTitle"></h3>
+   <p id="confirmMessage"></p>
+   <button id="confirmYesBtn">Yes</button>
+   <button id="confirmNoBtn" class="dashboard-btn">No</button>
+ </div>
 </div>
 
-<!-- Firebase -->
+
+<!-- Game Result Modal -->
+<div id="resultModal" class="modal-overlay">
+ <div class="modal" style="width: 500px; max-width: 90%;">
+   <h3 id="resultTitle"></h3>
+   <pre id="resultScores" style="text-align: left; background: #eee; padding: 10px; border-radius: 8px; color: var(--text-dark);"></pre>
+   <p id="hofMessage"></p>
+   <div style="display: flex; gap: 10px;">
+    
+<button onclick="endGame(false, true)" style="flex: 1; background-color: var(--color-above);">Play Again</button>
+    
+<button onclick="endGame(false, false)" style="flex: 1; background-color: var(--color-below);">Home Screen</button>
+   </div>
+ </div>
+</div>
+
+
+<!-- Historical Scorecard View Modal -->
+<div id="scoreViewModal" class="modal-overlay">
+ <div class="modal" id="historicalScoreCard" style="width: 450px; max-width: 90%;">
+  
+<button onclick="document.getElementById('scoreViewModal').style.display='none'">Close</button>
+ </div>
+</div>
+
+
+<!-- Manual Add Score Modal -->
+<div id="manualAddModal" class="modal-overlay">
+ <div class="modal">
+   <h3>Add Historical Score</h3>
+   <p>Manually enter a high score from a paper game. A detailed scorecard will not be available.</p>
+   <input type="text" id="manualName" placeholder="Player Name" style="width: 100%; margin-bottom: 10px;">
+   <input type="date" id="manualDate" style="width: 100%; margin-bottom: 10px;">
+   <input type="number" id="manualScore" placeholder="Grand Total Score (e.g., 420)" style="width: 100%; margin-bottom: 20px;">
+   <button onclick="addManualScore()">Add Score</button>
+   <button onclick="closeManualAddModal()" class="dashboard-btn">Cancel</button>
+ </div>
+</div>
+
+
+
+
 <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore-compat.js"></script>
+<!-- D3 script updated to a stable CDN link -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+
 
 <script>
-// --- Firebase ---
-const firebaseConfig = { 
-  apiKey: "AIzaSyBkvd10rqLKr40khhZP5X95ZsrWyRjlXRA",
-  authDomain: "yahtzee-scoring-tvs.firebaseapp.com",
-  projectId: "yahtzee-scoring-tvs",
-  storageBucket: "yahtzee-scoring-tvs.firebasestorage.app",
-  messagingSenderId: "651930856297",
-  appId: "1:651930856297:web:cce851e3b66949fb552bf8"
+// --- Firebase Setup ---
+// The following config is a placeholder. The actual environment will provide the required global variables.
+const firebaseConfig = {
+ apiKey: "AIzaSyBkvd10rqLKr40khhZP5X95ZsrWyRjlXRA",
+ authDomain: "yahtzee-scoring-tvs.firebaseapp.com",
+ projectId: "yahtzee-scoring-tvs",
+ storageBucket: "yahtzee-scoring-tvs.firebasestorage.app",
+ messagingSenderId: "651930856297",
+ appId: "1:651930856297:web:cce851e3b669499fb552bf8"
 };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 db.enablePersistence().catch(err => console.log("Firestore persistence error:", err));
 
+
 // --- Constants ---
 const categories = [
-  "Aces","Twos","Threes","Fours","Fives","Sixes",
-  "3 of a Kind","4 of a Kind","Full House","Small Straight","Large Straight",
-  "Yahtzee","Yahtzee Bonus","Chance"
+ "Aces","Twos","Threes","Fours","Fives","Sixes",
+ "3 of a Kind","4 of a Kind","Full House","Small Straight","Large Straight",
+ "Yahtzee","Yahtzee Bonus","Chance"
 ];
+const upperCats = ["Aces", "Twos", "Threes", "Fours", "Fives", "Sixes"];
+const lowerCats = ["3 of a Kind", "4 of a Kind", "Full House", "Small Straight", "Large Straight", "Yahtzee", "Chance"];
+const lowerCatsForStats = ["3 of a Kind", "4 of a Kind", "Full House", "Small Straight", "Large Straight", "Yahtzee"]; // Exclude Chance for success rate
 const fixedValueCategories = {"Full House":[25],"Small Straight":[30],"Large Straight":[40],"Yahtzee":[50]};
+const UPPER_BONUS_THRESHOLD = 63;
+const HALL_OF_FAME_SCORE = 400;
+
 
 // --- Game State ---
 let players = [];
 let gameHistory = JSON.parse(localStorage.getItem("yahtzeeGameHistory") || "[]");
 let currentPlayerIndex = 0;
+let displayPlayerIndex = 0; // The index of the player card currently being viewed
 let turnMode = false;
 let lastAction = null;
 let yahtzeeBonusUsedThisTurn = false;
+let recentPlayers = JSON.parse(localStorage.getItem("recentPlayers") || "[]");
+
+
+// --- Swiping State ---
+let touchStartX = 0;
+let touchEndX = 0;
+const SWIPE_THRESHOLD = 50;
+
 
 // --- Helper Functions ---
-/**
- * Calculates a player's grand total score based on all categories.
- * @param {object} player - The player object with scores.
- * @returns {number} The total score.
- */
 function getPlayerGrandTotal(player) {
-  const upper = ["Aces", "Twos", "Threes", "Fours", "Fives", "Sixes"].reduce((s, c) => s + (player.scores[c] || 0), 0);
-  const bonus = upper >= 63 ? 35 : 0;
-  const lower = ["3 of a Kind", "4 of a Kind", "Full House", "Small Straight", "Large Straight", "Yahtzee", "Yahtzee Bonus", "Chance"].reduce((s, c) => s + (player.scores[c] || 0), 0);
-  return upper + bonus + lower;
+ // Manual entries will have a 'total' property set directly in the 'result' array, but for
+ // calculating on the fly from a scorecard, use this:
+ if (player.manual && player.total) return player.total;
+  const upper = upperCats.reduce((s, c) => s + (player.scores[c] || 0), 0);
+ const bonus = upper >= UPPER_BONUS_THRESHOLD ? 35 : 0;
+ const lower = lowerCats.reduce((s, c) => s + (player.scores[c] || 0), 0) + (player.scores["Yahtzee Bonus"] || 0);
+ return upper + bonus + lower;
 }
 
-/**
- * Updates the running totals display in the footer.
- */
+
+function getUpperSectionScore(player) {
+ return upperCats.reduce((s, c) => s + (player.scores[c] || 0), 0);
+}
+
+
 function updateRunningTotals() {
-  const runningDiv = document.getElementById("runningTotals");
-  runningDiv.innerText = players.map(p => `${p.name}: ${getPlayerGrandTotal(p)}`).join(' | ');
+ const runningDiv = document.getElementById("runningTotals");
+ runningDiv.innerText = players.map(p => {
+   const total = getPlayerGrandTotal(p);
+   return `${p.name}: ${total}${players.indexOf(p) === currentPlayerIndex ? ' (Turn)' : ''}`;
+ }).join(' | ');
 }
 
-/**
- * Hides the player score card container and footer.
- */
+
 function hidePlayerCardContainer() {
-  document.getElementById("playerCardContainer").style.display = "none";
-  document.getElementById("footer").style.display = "none";
+ document.getElementById("playerCardContainer").style.display = "none";
+ document.getElementById("footer").style.display = "none";
+ document.getElementById("swipeActions").style.display = "none";
 }
+
 
 // --- Firestore snapshot ---
+// This listener keeps gameHistory synced in real-time
 db.collection("yahtzeeGames").onSnapshot(snapshot => {
-  gameHistory = snapshot.docs.map(doc => doc.data());
-  localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
-  updateStatsDashboard();
+ gameHistory = snapshot.docs.map(doc => doc.data());
+ localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
+ // Call updateStatsDashboard to ensure stats are refreshed whenever data changes
+ if (document.getElementById("statsDashboard").style.display !== "none") {
+     updateStatsDashboard();
+ }
 });
 
-// --- Player Management ---
-function randomColor() { 
-  const r = Math.floor(Math.random() * 150) + 50; 
-  const g = Math.floor(Math.random() * 150) + 50; 
-  const b = Math.floor(Math.random() * 150) + 50; 
-  return `rgb(${r},${g},${b})`; 
+
+// --- Player Management & Recent Players ---
+function randomColor() {
+ const r = Math.floor(Math.random() * 150) + 50;
+ const g = Math.floor(Math.random() * 150) + 50;
+ const b = Math.floor(Math.random() * 150) + 50;
+ return `rgb(${r},${g},${b})`;
 }
+
 
 function addPlayer() {
-  const name = document.getElementById("playerName").value.trim();
-  if (!name) return showAlert("Error", "Please enter a player name.");
-  players.push({name, scores: {}, locked: {}, color: randomColor(), yahtzeeBonusCount: 0});
-  document.getElementById("playerName").value = "";
-  renderPlayerList();
-  document.getElementById("startGameBtn").disabled = players.length === 0;
+ const name = document.getElementById("playerName").value.trim();
+ if (!name) return showAlert("Error", "Please enter a player name.");
+ if (players.some(p => p.name === name)) return showAlert("Error", `Player "${name}" is already added.`);
+
+
+ players.push({name, scores: {}, locked: {}, color: randomColor(), yahtzeeBonusCount: 0});
+ document.getElementById("playerName").value = "";
+ renderPlayerList();
+ document.getElementById("startGameBtn").disabled = players.length === 0;
 }
 
-function removePlayer(i) { 
-  players.splice(i, 1); 
-  renderPlayerList(); 
-  document.getElementById("startGameBtn").disabled = players.length === 0; 
+
+function removePlayer(i) {
+ players.splice(i, 1);
+ renderPlayerList();
+ document.getElementById("startGameBtn").disabled = players.length === 0;
 }
+
+
 function renderPlayerList() {
-  const list = document.getElementById("playerList");
-  list.innerHTML = "";
-  players.forEach((p, i) => {
-    const div = document.createElement("div");
-    div.className = "player-list-item";
-    div.innerHTML = `
-      <span>${i + 1}. ${p.name}</span>
-      <span>
-        <button aria-label="Move Up" onclick="movePlayerUp(${i})">↑</button>
-        <button aria-label="Move Down" onclick="movePlayerDown(${i})">↓</button>
-        <button aria-label="Remove Player" onclick="removePlayer(${i})">✖</button>
-      </span>`;
-    list.appendChild(div);
-  });
+ const list = document.getElementById("playerList");
+ list.innerHTML = "";
+ players.forEach((p, i) => {
+   const div = document.createElement("div");
+   div.className = "player-list-item";
+   div.innerHTML = `
+     <span>${i + 1}. ${p.name}</span>
+     <span>
+       <button aria-label="Move Up" onclick="movePlayerUp(${i})">↑</button>
+       <button aria-label="Move Down" onclick="movePlayerDown(${i})">↓</button>
+       <button aria-label="Remove Player" onclick="removePlayer(${i})">✖</button>
+     </span>`;
+   list.appendChild(div);
+ });
+ renderRecentPlayers();
 }
 function movePlayerUp(i) { if (i === 0) return; [players[i - 1], players[i]] = [players[i], players[i - 1]]; renderPlayerList(); }
 function movePlayerDown(i) { if (i === players.length - 1) return; [players[i + 1], players[i]] = [players[i + 1], players[i]]; renderPlayerList(); }
 
+
+function updateRecentPlayers(names) {
+   let currentRecent = JSON.parse(localStorage.getItem("recentPlayers") || "[]");
+   names.forEach(name => {
+       // Remove existing entry to move it to the front
+       currentRecent = currentRecent.filter(pName => pName !== name);
+       // Add to front
+       currentRecent.unshift(name);
+   });
+   // Keep only the last 5 unique players
+   currentRecent = currentRecent.slice(0, 5);
+   recentPlayers = currentRecent;
+   localStorage.setItem("recentPlayers", JSON.stringify(recentPlayers));
+   renderRecentPlayers();
+}
+
+
+function renderRecentPlayers() {
+   const list = document.getElementById("recentPlayersList");
+   list.innerHTML = "";
+   if (recentPlayers.length === 0) {
+       list.innerText = "No recent players.";
+       return;
+   }
+
+
+   recentPlayers.filter(name => !players.some(p => p.name === name)).forEach(name => {
+       const btn = document.createElement("button");
+       btn.innerText = name;
+       btn.onclick = () => {
+           document.getElementById("playerName").value = name;
+           addPlayer();
+       };
+       list.appendChild(btn);
+   });
+   if (list.innerHTML === "") { list.innerText = "All recent players are currently in the game."; }
+}
+
+
 // --- Game Start ---
-function startGame() {
-  if (players.length === 0) return showAlert("Error", "Add at least one player");
-  turnMode = true; 
-  currentPlayerIndex = 0;
-  hideStats();
-  document.getElementById("playerSetup").style.display = "none";
-  document.getElementById("playerCardContainer").style.display = "block";
-  document.getElementById("footer").style.display = "flex";
-  renderPlayerCard(false);
+function startGame(keepPlayers = false) {
+ if (players.length === 0) return showAlert("Error", "Add at least one player");
+ if (!keepPlayers) {
+   // If starting a brand new game, re-initialize player scores
+   players = players.map(p => ({
+     name: p.name, scores: {}, locked: {}, color: p.color, yahtzeeBonusCount: 0
+   }));
+ }
+ turnMode = true;
+ currentPlayerIndex = 0;
+ displayPlayerIndex = 0;
+ lastAction = null;
+ yahtzeeBonusUsedThisTurn = false;
+
+
+ hideStats();
+ document.getElementById("playerSetup").style.display = "none";
+ document.getElementById("playerCardContainer").style.display = "block";
+ document.getElementById("footer").style.display = "flex";
+  // Attach swipe listeners only when starting a game
+ const container = document.getElementById("playerCardContainer");
+ container.addEventListener('touchstart', handleTouchStart, false);       
+ container.addEventListener('touchmove', handleTouchMove, false);
+ container.addEventListener('touchend', handleTouchEnd, false);
+
+
+ renderPlayerCard(false);
 }
 
-// --- Scorecard Rendering ---
-function renderPlayerCard(animateCard = true) {
-  const container = document.getElementById("playerCardContainer");
-  container.innerHTML = "";
-  const player = players[currentPlayerIndex];
+
+// --- Scorecard Rendering (Updated for Bonus Tracker & Totals) ---
+function renderPlayerCard(animateCard = true, idx = displayPlayerIndex, forModal = false) {
+ const container = forModal ? document.getElementById("historicalScoreCard") : document.getElementById("playerCardContainer");
+ const player = players[idx];
+ const isCurrentTurn = idx === currentPlayerIndex;
+  // Prevent rendering full card for manual history entries inside the view modal
+ if (forModal && player.manual) return;
   const card = document.createElement("div");
-  card.className = "score-card";
-  // Apply animation only when it's a new turn and there's more than one player.
-  if (animateCard && players.length > 1) {
-    card.classList.add("player-card-transition");
-  }
-  card.style.background = player.color;
-  card.innerHTML = `<h2>${player.name}</h2>`;
+ card.className = "score-card";
+ card.style.background = player.color;
+  // 1. Swiping animation: only for multi-player and new turn transitions
+ if (animateCard && players.length > 1 && isCurrentTurn && !forModal) {
+   card.classList.add("player-card-transition");
+ }
 
-  categories.forEach(cat => {
-    const locked = player.locked[cat];
-    const row = document.createElement("div");
-    row.className = "category-row" + (locked ? " locked" : "");
-    let inner = `<div class="category-label">${cat}</div>`;
 
-    if (["Aces", "Twos", "Threes", "Fours", "Fives", "Sixes"].includes(cat)) {
-      const num = ["Aces", "Twos", "Threes", "Fours", "Fives", "Sixes"].indexOf(cat) + 1;
-      const maxVal = num * 5;
-      if (locked) { inner += `<div>${player.scores[cat] || 0}</div>`; }
-      else {
-        inner += `<div class="quick-buttons">${[1, 2, 3, 4, 5].map(mult => { const val = mult * num; return `<button onclick="updateScore('${cat}',${val})">${val}</button>`; }).join('')}</div>`;
-        inner += `<button onclick="updateScore('${cat}',0)">Scratch</button>`;
-      }
-    } else if (["3 of a Kind", "4 of a Kind"].includes(cat)) {
-      if (locked) { inner += `<div>${player.scores[cat] || 0}</div>`; }
-      else {
-        let options = "<option value=''>--</option>";
-        for (let i = 0; i <= 30; i++) options += `<option value="${i}">${i}</option>`;
-        inner += `<select onchange="updateScore('${cat}',this.value)">${options}</select>`;
-        inner += `<button onclick="updateScore('${cat}',0)">Scratch</button>`;
-      }
-    } else if (cat === "Chance") {
-      if (locked) { inner += `<div>${player.scores[cat] || 0}</div>`; }
-      else {
-        let options = "<option value=''>--</option>";
-        for (let i = 1; i <= 30; i++) options += `<option value="${i}">${i}</option>`;
-        inner += `<select onchange="updateScore('${cat}',this.value)">${options}</select>`;
-      }
-    } else if (fixedValueCategories[cat]) {
-      if (locked) { inner += `<div>${player.scores[cat] || 0}</div>`; }
-      else { inner += `<div class="quick-buttons">${fixedValueCategories[cat].map(v => `<button onclick="updateScore('${cat}',${v})">${v}</button>`).join('')}<button onclick="updateScore('${cat}',0)">Scratch</button></div>`; }
-    } else if (cat === "Yahtzee Bonus") {
-      let xMarks = "X".repeat(player.yahtzeeBonusCount || 0);
-      if (player.locked["Yahtzee"] !== true || yahtzeeBonusUsedThisTurn || locked) {
-        inner += `<div>${player.scores[cat] || 0} ${xMarks} (locked)</div>`;
-      } else {
-        inner += `<button onclick="incrementYahtzeeBonus()">+100</button> <span>${xMarks}</span>`;
-      }
-    }
+ card.innerHTML = `<h2>${player.name}${isCurrentTurn && !forModal ? ' (YOUR TURN)' : ''}</h2>`;
+  let upperTotal = 0;
+ let bonusTrackerScore = 0;
 
-    row.innerHTML = inner;
-    card.appendChild(row);
-  });
 
-  const upperTotal = ["Aces", "Twos", "Threes", "Fours", "Fives", "Sixes"].reduce((s, c) => s + (player.scores[c] || 0), 0);
-  const bonus = upperTotal >= 63 ? 35 : 0;
-  const lowerTotal = ["3 of a Kind", "4 of a Kind", "Full House", "Small Straight", "Large Straight", "Yahtzee", "Yahtzee Bonus", "Chance"].reduce((s, c) => s + (player.scores[c] || 0), 0);
-  const grandTotal = upperTotal + bonus + lowerTotal;
+ categories.forEach(cat => {
+   const locked = player.locked[cat] || forModal;
+   const row = document.createElement("div");
+   row.className = "category-row" + (locked ? " locked" : "");
+   let inner = `<div class="category-label">${cat}</div>`;
+   const scoreVal = player.scores[cat] || 0;
+
+
+   // UPPER SECTION Logic (Aces to Sixes)
+   if (upperCats.includes(cat)) {
+     const num = upperCats.indexOf(cat) + 1; // 1 to 6
+     const expectedScore = num * 3;
+    
+     upperTotal += scoreVal;
+    
+     // Calculate deviation for Bonus Tracker only if scored/locked
+     if (locked) {
+         bonusTrackerScore += (scoreVal - expectedScore);
+     }
+
+
+     let scoreClass = 'score-on-track';
+     if (scoreVal > expectedScore) { scoreClass = 'score-above'; }
+     else if (scoreVal < expectedScore) { scoreClass = 'score-below'; }
+
+
+     if (locked) {
+       inner += `<div class="${scoreClass}" style="padding: 0 10px; border-radius: 4px;">${scoreVal}</div>`;
+     } else {
+       inner += `<div class="quick-buttons">${[1, 2, 3, 4, 5].map(mult => {
+         const val = mult * num;
+         const btnClass = val > expectedScore ? 'score-above' : (val < expectedScore ? 'score-below' : 'score-on-track');
+         return `<button class="${btnClass}" onclick="updateScore('${cat}',${val})">${val}</button>`;
+       }).join('')}</div>`;
+       inner += `<button onclick="updateScore('${cat}',0)">Scratch</button>`;
+     }
+   }
+   // LOWER SECTION Logic
+   else if (["3 of a Kind", "4 of a Kind", "Chance"].includes(cat)) {
+       if (locked) { inner += `<div>${scoreVal}</div>`; }
+       else {
+           let options = "<option value=''>--</option>";
+           const max = cat === "Chance" ? 30 : 30;
+           for (let i = 0; i <= max; i++) options += `<option value="${i}">${i}</option>`;
+           inner += `<select onchange="updateScore('${cat}',this.value)">${options}</select>`;
+           if (cat !== "Chance") { inner += `<button onclick="updateScore('${cat}',0)">Scratch</button>`; }
+       }
+   } else if (fixedValueCategories[cat]) {
+     if (locked) { inner += `<div>${scoreVal}</div>`; }
+     else { inner += `<div class="quick-buttons">${fixedValueCategories[cat].map(v => `<button onclick="updateScore('${cat}',${v})">${v}</button>`).join('')}<button onclick="updateScore('${cat}',0)">Scratch</button></div>`; }
+   } else if (cat === "Yahtzee Bonus") {
+     let xMarks = "X".repeat(player.yahtzeeBonusCount || 0);
+     if (player.locked["Yahtzee"] !== true || yahtzeeBonusUsedThisTurn || locked) {
+       inner += `<div>${scoreVal} ${xMarks} (locked)</div>`;
+     } else {
+       inner += `<button onclick="incrementYahtzeeBonus()">+100</button> <span>${xMarks}</span>`;
+     }
+   }
+
+
+   row.innerHTML = inner;
+   card.appendChild(row);
+  
+   // Insert the Upper Section Summary after the "Sixes" row
+   if (cat === "Sixes") {
+       const bonusValue = upperTotal >= UPPER_BONUS_THRESHOLD ? 35 : 0;
+       const upperSummaryHTML = `
+           <div class="bonus-tracker" style="display: flex; justify-content: space-around; gap: 5px; margin-top: 10px; padding: 10px 0; border-top: 2px solid var(--border-color); border-bottom: 2px solid var(--border-color); background: rgba(0,0,0,0.3);">
+               <div style="flex: 1; text-align: center;">
+                   Upper Score: <strong>${upperTotal}</strong>
+               </div>
+               <div style="flex: 1; text-align: center; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color);">
+                   Tracker:
+                   <span class="${bonusTrackerScore >= 0 ? 'positive' : 'negative'}">
+                       ${bonusTrackerScore > 0 ? '+' : ''}${bonusTrackerScore}
+                   </span>
+               </div>
+               <div style="flex: 1; text-align: center;">
+                   Bonus: <strong>${bonusValue}</strong>
+               </div>
+           </div>
+       `;
+       // Use insertAdjacentHTML to place it exactly after the row
+       card.lastElementChild.insertAdjacentHTML('afterend', upperSummaryHTML);
+   }
+ });
+
+
+ // Calculate and display final totals (Simplified)
+ const bonusValue = upperTotal >= UPPER_BONUS_THRESHOLD ? 35 : 0;
+ const lowerTotal = lowerCats.reduce((s, c) => s + (player.scores[c] || 0), 0) + (player.scores["Yahtzee Bonus"] || 0);
+ const grandTotal = upperTotal + bonusValue + lowerTotal;
   const totalsDiv = document.createElement("div");
-  totalsDiv.className = "totals";
-  totalsDiv.innerText = `Upper: ${upperTotal} Bonus: ${bonus} | Lower: ${lowerTotal} | Grand: ${grandTotal}`;
-  card.appendChild(totalsDiv);
+ totalsDiv.className = "totals";
+ totalsDiv.innerText = `Upper: ${upperTotal + bonusValue} | Lower: ${lowerTotal} | Grand: ${grandTotal}`;
+ card.appendChild(totalsDiv);
 
-  updateRunningTotals();
-  card.innerHTML += `<button onclick="undoScore()">Undo Last Input</button>`;
-  container.appendChild(card);
+
+ if (!forModal) {
+   container.innerHTML = "";
+   updateRunningTotals();
+   card.innerHTML += `<button onclick="undoScore()">Undo Last Input</button>`;
+ }
+ container.appendChild(card);
 }
+
+
+// --- Swiping Logic (4) ---
+function handleTouchStart(evt) {
+   if (players.length < 2 || !turnMode) return;
+   touchStartX = evt.touches[0].clientX;
+}
+
+
+function handleTouchMove(evt) {
+   if (players.length < 2 || !turnMode) return;
+   touchEndX = evt.touches[0].clientX;
+}
+
+
+function handleTouchEnd() {
+   if (players.length < 2 || !turnMode || touchEndX === 0) return;
+  
+   const diff = touchStartX - touchEndX;
+
+
+   if (Math.abs(diff) > SWIPE_THRESHOLD) {
+       if (diff > 0) {
+           // Swiped Left (Next Player)
+           displayPlayerIndex = (displayPlayerIndex + 1) % players.length;
+       } else {
+           // Swiped Right (Previous Player)
+           displayPlayerIndex = (displayPlayerIndex - 1 + players.length) % players.length;
+       }
+      
+       renderPlayerCard(false, displayPlayerIndex, false);
+      
+       // Show "Return to Turn" button if not on current player's card
+       const swipeActions = document.getElementById("swipeActions");
+       if (displayPlayerIndex !== currentPlayerIndex) {
+           swipeActions.style.display = "block";
+           document.getElementById("returnToTurnBtn").innerText = `Return to ${players[currentPlayerIndex].name}'s Turn`;
+       } else {
+           swipeActions.style.display = "none";
+       }
+   }
+   touchStartX = 0;
+   touchEndX = 0;
+}
+
+
+function returnToTurn() {
+   displayPlayerIndex = currentPlayerIndex;
+   renderPlayerCard(false, displayPlayerIndex, false);
+   document.getElementById("swipeActions").style.display = "none";
+}
+
+
+
 
 // --- Score Handling ---
 function updateScore(cat, val) {
-  if (val === "" || isNaN(val)) return;
-  val = Number(val);
+ if (val === "" || isNaN(val)) return;
+ val = Number(val);
 
-  const player = players[currentPlayerIndex];
-  lastAction = { playerIndex: currentPlayerIndex, cat, valOld: player.scores[cat] || 0, yahtzeeBonusUsedPrev: yahtzeeBonusUsedThisTurn };
 
-  player.scores[cat] = val;
-  player.locked[cat] = true;
+ const player = players[currentPlayerIndex];
+ lastAction = {
+   playerIndex: currentPlayerIndex,
+   cat,
+   valOld: player.scores[cat] || 0,
+   yahtzeeBonusUsedPrev: yahtzeeBonusUsedThisTurn,
+   playerStateSnapshot: JSON.stringify(player) // Snapshot for deeper undo
+ };
 
-  if (cat === "Yahtzee") { 
-    player.locked["Yahtzee Bonus"] = player.scores[cat] === 50 ? false : true; 
-  }
 
-  if (cat !== "Yahtzee Bonus") { yahtzeeBonusUsedThisTurn = false; nextPlayer(); }
+ player.scores[cat] = val;
+ player.locked[cat] = true;
 
-  renderPlayerCard();
+
+ if (cat === "Yahtzee") {
+   // Allow Yahtzee bonus only if Yahtzee was scored (50 points)
+   player.locked["Yahtzee Bonus"] = player.scores[cat] !== 50;
+ }
+
+
+ // Only trigger player transition animation and turn change if NOT Yahtzee Bonus
+ const animate = cat !== "Yahtzee Bonus" && players.length > 1;
+
+
+ if (cat !== "Yahtzee Bonus") {
+   yahtzeeBonusUsedThisTurn = false;
+   nextPlayer();
+ }
+
+
+ renderPlayerCard(animate, currentPlayerIndex, false);
+ document.getElementById("swipeActions").style.display = "none"; // Hide swipe actions on score input
 }
+
 
 function incrementYahtzeeBonus() {
-  const player = players[currentPlayerIndex];
-  if (yahtzeeBonusUsedThisTurn) return;
-  player.scores["Yahtzee Bonus"] = (player.scores["Yahtzee Bonus"] || 0) + 100;
-  player.yahtzeeBonusCount = (player.yahtzeeBonusCount || 0) + 1;
-  yahtzeeBonusUsedThisTurn = true;
-  renderPlayerCard(false); // Do not animate on bonus
+ const player = players[currentPlayerIndex];
+ if (yahtzeeBonusUsedThisTurn) return;
+
+
+ lastAction = {
+   playerIndex: currentPlayerIndex,
+   cat: "Yahtzee Bonus",
+   valOld: player.scores["Yahtzee Bonus"] || 0,
+   yahtzeeBonusUsedPrev: yahtzeeBonusUsedThisTurn,
+   playerStateSnapshot: JSON.stringify(player)
+ };
+
+
+ player.scores["Yahtzee Bonus"] = (player.scores["Yahtzee Bonus"] || 0) + 100;
+ player.yahtzeeBonusCount = (player.yahtzeeBonusCount || 0) + 1;
+ yahtzeeBonusUsedThisTurn = true;
+  // Re-render current player card without animating
+ renderPlayerCard(false, currentPlayerIndex, false);
 }
+
 
 function undoScore() {
-  if (!lastAction) return;
-  const { playerIndex, cat, valOld, yahtzeeBonusUsedPrev } = lastAction;
+ if (!lastAction) return;
+  // Restore player state from snapshot
+ const { playerIndex, cat, yahtzeeBonusUsedPrev, playerStateSnapshot } = lastAction;
+  players[playerIndex] = JSON.parse(playerStateSnapshot);
   currentPlayerIndex = playerIndex;
-  const player = players[currentPlayerIndex];
-  player.scores[cat] = valOld;
-  player.locked[cat] = false;
-  if (cat === "Yahtzee Bonus") player.yahtzeeBonusCount = Math.max(0, player.yahtzeeBonusCount - 1);
-  yahtzeeBonusUsedThisTurn = yahtzeeBonusUsedPrev;
+ displayPlayerIndex = playerIndex;
+ yahtzeeBonusUsedThisTurn = yahtzeeBonusUsedPrev;
   lastAction = null;
-  renderPlayerCard(false); // Do not animate on undo
+ renderPlayerCard(false, currentPlayerIndex, false); // Do not animate on undo
+ document.getElementById("swipeActions").style.display = "none";
 }
 
-function nextPlayer() { 
-  yahtzeeBonusUsedThisTurn = false;
-  currentPlayerIndex = (currentPlayerIndex + 1) % players.length; 
-  renderPlayerCard(); 
+
+function nextPlayer() {
+ yahtzeeBonusUsedThisTurn = false;
+ currentPlayerIndex = (currentPlayerIndex + 1) % players.length;
+ displayPlayerIndex = currentPlayerIndex; // Reset view to current player
 }
 
-// --- End game modal ---
+
+// --- Manual Score Add Functions ---
+function showManualAddModal() {
+   document.getElementById("manualName").value = "";
+   document.getElementById("manualScore").value = "";
+   // Set default date to today
+   document.getElementById("manualDate").valueAsDate = new Date();
+   document.getElementById("manualAddModal").style.display = "flex";
+}
+
+
+function closeManualAddModal() {
+   document.getElementById("manualAddModal").style.display = "none";
+}
+
+
+function addManualScore() {
+   const name = document.getElementById("manualName").value.trim();
+   const dateStr = document.getElementById("manualDate").value;
+   const score = parseInt(document.getElementById("manualScore").value, 10);
+
+
+   if (!name || !dateStr || isNaN(score) || score <= 0) {
+       return showAlert("Error", "Please fill out all fields with valid data.");
+   }
+  
+   // 1. Create a minimal game result structure
+   const manualResult = [{
+       name: name,
+       scores: {}, // Empty scores object
+       total: score,
+       manual: true // Flag this entry as manual
+   }];
+
+
+   // 2. Create the game history entry
+   const newGameEntry = {
+       date: new Date(dateStr).toISOString(),
+       result: manualResult,
+       manual: true
+   };
+  
+   // 3. Save to local history
+   gameHistory.push(newGameEntry);
+   localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
+
+
+   // 4. Save to Firestore
+   db.collection("yahtzeeGames").add(newGameEntry)
+     .then(() => {
+         showAlert("Success", `Historical score of ${score} for ${name} added successfully.`);
+         closeManualAddModal();
+         // The onSnapshot listener will refresh the dashboard, but we force it here for immediate feedback
+         updateStatsDashboard();
+     })
+     .catch(error => {
+         console.error("Error adding manual document: ", error);
+         showAlert("Error", "Failed to save score to the cloud.");
+     });
+}
+
+
+// --- Modals and End Game ---
 function showConfirmModal(title, message, onYes, onNo) {
-  document.getElementById("confirmTitle").innerText = title;
-  document.getElementById("confirmMessage").innerText = message;
-  const yesBtn = document.getElementById("confirmYesBtn");
-  const noBtn = document.getElementById("confirmNoBtn");
+ document.getElementById("confirmTitle").innerText = title;
+ document.getElementById("confirmMessage").innerText = message;
+ const yesBtn = document.getElementById("confirmYesBtn");
+ const noBtn = document.getElementById("confirmNoBtn");
 
-  yesBtn.onclick = () => { closeConfirmModal(); onYes(); };
-  noBtn.onclick = () => { closeConfirmModal(); onNo(); };
-  document.getElementById("confirmModal").style.display = "flex";
+
+ yesBtn.onclick = () => { closeConfirmModal(); onYes(); };
+ noBtn.onclick = () => { closeConfirmModal(); onNo(); };
+ document.getElementById("confirmModal").style.display = "flex";
 }
 function closeConfirmModal() {
-  document.getElementById("confirmModal").style.display = "none";
+ document.getElementById("confirmModal").style.display = "none";
 }
+
+
 function showAlert(title, message) {
-  document.getElementById("alertTitle").innerText = title;
-  document.getElementById("alertMessage").innerText = message;
-  document.getElementById("alertModal").style.display = "flex";
+ document.getElementById("alertTitle").innerText = title;
+ document.getElementById("alertMessage").innerText = message;
+ document.getElementById("alertModal").style.display = "flex";
 }
 function closeAlertModal() {
-  document.getElementById("alertModal").style.display = "none";
+ document.getElementById("alertModal").style.display = "none";
 }
 
-function endGame(save) {
-  
+
+function showResultModal(sortedPlayers, savedToHof) {
+ const winner = sortedPlayers[0];
+ const winnerTotal = getPlayerGrandTotal(winner);
+  document.getElementById("resultTitle").innerHTML = `🎉 **${winner.name}** wins with ${winnerTotal} points! 🎉`;
+
+
+ const resultsText = sortedPlayers.map((p, i) => {
+   const total = getPlayerGrandTotal(p);
+   return `${i === 0 ? '🏆 ' : ''}${p.name.padEnd(10)}: ${total}`;
+ }).join('\n');
+  document.getElementById("resultScores").innerText = resultsText;
+  document.getElementById("hofMessage").innerText = savedToHof
+   ? "One or more players achieved 400+ points and were added to the Hall of Fame!"
+   : "";
+  document.getElementById("resultModal").style.display = "flex";
+}
+
+
+// New logic for end game (1)
+function endGame(save, playAgain = false, backToSetup = false) {
   const sortedPlayers = [...players].sort((a, b) => getPlayerGrandTotal(b) - getPlayerGrandTotal(a));
-  
-  const resultsText = sortedPlayers.map(p => {
-    const total = getPlayerGrandTotal(p);
-    return `${p.name}: ${total}`;
-  }).join('\n');
-  
-  const winner = sortedPlayers[0];
-  const winnerMessage = `🎉 Congratulations, ${winner.name}! 🎉\n\nYou are the Yahtzee master!`;
-  
-  if (save) {
-    const result = players.map(p => ({name: p.name, scores: p.scores}));
-    gameHistory.push({date: new Date(), result});
-    localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
-    db.collection("yahtzeeGames").add({date: new Date(), result});
-  }
+ const finalScores = sortedPlayers.map(p => ({
+   name: p.name,
+   scores: p.scores,
+   total: getPlayerGrandTotal(p)
+ }));
+  let savedToHof = false;
+ if (save) {
+   // Save to game history and Firestore
+   const newGameEntry = {date: new Date().toISOString(), result: finalScores};
+   gameHistory.push(newGameEntry);
+   localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
+   db.collection("yahtzeeGames").add(newGameEntry);
 
-  showAlert(winnerMessage, `Final Scores:\n${resultsText}`);
 
-  players = []; 
-  currentPlayerIndex = 0; 
-  turnMode = false; 
-  yahtzeeBonusUsedThisTurn = false;
+   // Update recent players list
+   const playerNames = players.map(p => p.name);
+   updateRecentPlayers(playerNames);
+
+
+   // Check for Hall of Fame qualification
+   if (finalScores.some(p => p.total >= HALL_OF_FAME_SCORE)) {
+     savedToHof = true;
+   }
+
+
+   // Show result modal and ask for next action
+   showResultModal(sortedPlayers, savedToHof);
+   hidePlayerCardContainer();
+   return; // Exit here if saving, let the modal buttons handle next step
+ }
+  // If we reach here, it's after the modal choice (playAgain or backToSetup/Home Screen)
+ document.getElementById("resultModal").style.display = "none";
+  if (playAgain) { // This handles "Play Again" (Keep Names)
+   const currentPlayers = players.map(p => ({
+       name: p.name,
+       color: p.color
+   }));
+   // Keep player objects but reset scores/locks/bonuses
+   players = currentPlayers.map(p => ({
+     name: p.name, scores: {}, locked: {}, color: p.color, yahtzeeBonusCount: 0
+   }));
+   startGame(true); // startGame(true) re-initializes and starts
+   return;
+ }
+  // Back to setup (This handles "Home Screen")
+ players = [];
+ currentPlayerIndex = 0;
+ turnMode = false;
+ yahtzeeBonusUsedThisTurn = false;
   document.getElementById("playerSetup").style.display = "flex";
-  document.getElementById("playerCardContainer").style.display = "none";
-  document.getElementById("footer").style.display = "none";
-  renderPlayerList();
-  updateStatsDashboard();
+ document.getElementById("playerCardContainer").style.display = "none";
+ document.getElementById("footer").style.display = "none";
+ renderPlayerList();
+ updateStatsDashboard();
 }
 
-// --- Stats ---
+
 /**
- * Calculates a variety of statistics based on the game history.
- * This is where the core statistical logic resides.
- * @returns {object} An object containing stats for each player.
- */
+* Forces an application code refresh and data sync.
+*/
+function refreshAndSyncGame() {
+   showConfirmModal(
+       "Update & Refresh",
+       "This will reload the app to fetch the latest code and sync all data from other devices. Continue?",
+       () => {
+           // Yes: Force a hard refresh to bypass cache and get new code/sync data
+           window.location.reload(true);
+       },
+       () => {
+           // No: Simply force a stats re-render using existing data (already synced by onSnapshot)
+           updateStatsDashboard();
+           showAlert("Data Sync Complete", "The stats dashboard has been refreshed with the latest data from the database.");
+       }
+   );
+}
+
+
+
+
+// --- Stats and Hall of Fame ---
 function calculateStats() {
-  const stats = {};
-  gameHistory.forEach(game => {
-    const playersWithScores = game.result.map(p => ({
-        ...p,
-        total: getPlayerGrandTotal(p)
-    }));
-    const winnersScore = playersWithScores.length > 0 ? Math.max(...playersWithScores.map(p => p.total)) : 0;
+ const stats = {};
+ const hallOfFame = [];
+ let totalAllPoints = 0; // For overall average score
+ let totalGamesCounted = 0;
+
+
+ gameHistory.forEach(game => {
+   // Re-calculate totals because the historical data might not have the total pre-calculated
+   const playersWithScores = game.result.map(p => {
+       const isManual = p.manual || !p.scores || Object.keys(p.scores).length === 0;
+       const total = isManual
+           ? p.total || 0
+           : getPlayerGrandTotal({ scores: p.scores || {} });
+
+
+       return {
+           ...p,
+           total: total,
+           isManual: isManual
+       };
+   });
+   const winnersScore = playersWithScores.length > 0 ? Math.max(...playersWithScores.map(p => p.total)) : 0;
+  
+   playersWithScores.forEach(p => {
+     // Hall of Fame check
+     if (p.total >= HALL_OF_FAME_SCORE) {
+         hallOfFame.push({
+             name: p.name,
+             score: p.total,
+             date: game.date,
+             scorecard: p.isManual ? null : p.scores, // Pass null for manual entries
+             isManual: p.isManual
+         });
+     }
+
+
+     // Standard Stats calculation
+     if (!stats[p.name]) {
+         stats[p.name] = {
+             games: 0, wins: 0, streak: 0, maxStreak: 0, losingStreak: 0,
+             maxLosingStreak: 0, totalPoints: 0, totalScore: 0, avgScore: 0,
+             highestScore: 0, highestNoYahtzee: 0, mostYahtzees: 0,
+             bonusCount: 0, gamesWithYahtzee: 0, scratchCounts: {},
+             headToHead: {},
+             categorySuccesses: {}
+         };
+     }
+     const s = stats[p.name];
+     s.games++;
+     totalGamesCounted++;
     
-    playersWithScores.forEach(p => {
-      if (!stats[p.name]) {
-          stats[p.name] = {
-              games: 0, wins: 0, streak: 0, maxStreak: 0, losingStreak: 0,
-              maxLosingStreak: 0, totalPoints: 0, totalScore: 0, avgScore: 0,
-              highestScore: 0, highestNoYahtzee: 0, mostYahtzees: 0, 
-              bonusCount: 0, gamesWithYahtzee: 0, scratchCounts: {},
-              headToHead: {}, totalCategoryScores: {}
-          };
-      }
-      const s = stats[p.name]; 
-      s.games++;
-      
-      // Calculate wins and streak
-      if (p.total === winnersScore && playersWithScores.length > 1) { 
-          s.wins++; 
-          s.streak++; 
-          if (s.streak > s.maxStreak) s.maxStreak = s.streak; 
-          s.losingStreak = 0;
-      } else {
-          s.streak = 0;
-          s.losingStreak++;
-          if (s.losingStreak > s.maxLosingStreak) s.maxLosingStreak = s.losingStreak;
-      }
+     // Track all points for overall average
+     totalAllPoints += p.total;
 
-      // Sum total points and update highest score
-      s.totalPoints += p.total; 
-      s.totalScore += p.total;
-      if (p.total > s.highestScore) s.highestScore = p.total;
-      
-      // Calculate highest score without Yahtzee
-      const noY = Object.entries(p.scores)
-                      .filter(([cat]) => cat !== "Yahtzee" && cat !== "Yahtzee Bonus")
-                      .reduce((sum, [, v]) => sum + v, 0);
-      if (noY > s.highestNoYahtzee) s.highestNoYahtzee = noY;
-      
-      // Count total Yahtzees (base and bonus)
-      const yahtzeesThisGame = Math.floor((p.scores.Yahtzee || 0) / 50) + Math.floor((p.scores["Yahtzee Bonus"] || 0) / 100);
-      s.mostYahtzees = Math.max(s.mostYahtzees, yahtzeesThisGame);
-      if ((p.scores.Yahtzee || 0) > 0) s.gamesWithYahtzee++;
-      
-      // Count bonus scores
-      s.bonusCount += Math.floor((p.scores["Yahtzee Bonus"] || 0) / 100);
-      
-      // Count scratches
-      categories.forEach(cat => { 
-          if (!s.scratchCounts[cat]) { s.scratchCounts[cat] = 0; }
-          if (p.scores[cat] === 0) { s.scratchCounts[cat]++; }
-          if (!s.totalCategoryScores[cat]) { s.totalCategoryScores[cat] = 0; }
-          s.totalCategoryScores[cat] += (p.scores[cat] || 0);
-      });
 
-      // Calculate head-to-head
-      playersWithScores.forEach(opponent => {
-        if (p.name === opponent.name) return;
-        if (!s.headToHead[opponent.name]) {
-          s.headToHead[opponent.name] = { wins: 0, losses: 0, totalGames: 0 };
-        }
-        s.headToHead[opponent.name].totalGames++;
-        if (p.total > opponent.total) { s.headToHead[opponent.name].wins++; }
-        else if (p.total < opponent.total) { s.headToHead[opponent.name].losses++; }
-      });
-    });
-  });
+     // Skip deep score tracking for manual entries, only track totals/wins/games
+     if (!p.isManual) {
+         const noY = Object.entries(p.scores).filter(([cat]) => cat !== "Yahtzee" && cat !== "Yahtzee Bonus").reduce((sum, [, v]) => sum + v, 0);
+         if (noY > s.highestNoYahtzee) s.highestNoYahtzee = noY;
+         const yahtzeesThisGame = Math.floor((p.scores.Yahtzee || 0) / 50) + Math.floor((p.scores["Yahtzee Bonus"] || 0) / 100);
+         s.mostYahtzees = Math.max(s.mostYahtzees, yahtzeesThisGame);
+         if ((p.scores.Yahtzee || 0) > 0) s.gamesWithYahtzee++;
+         s.bonusCount += Math.floor((p.scores["Yahtzee Bonus"] || 0) / 100);
+        
+         categories.forEach(cat => {
+             if (!s.scratchCounts[cat]) { s.scratchCounts[cat] = 0; }
+             if (p.scores[cat] === 0) { s.scratchCounts[cat]++; }
+         });
+        
+         // Lower Section Success Tracking (for the new bar chart)
+         lowerCatsForStats.forEach(cat => {
+             if (!s.categorySuccesses[cat]) { s.categorySuccesses[cat] = 0; }
+             // If score is > 0, it was a success (not scratched/zeroed out).
+             if ((p.scores[cat] || 0) > 0) {
+                 s.categorySuccesses[cat]++;
+             }
+         });
+     }
 
-  // Finalize average calculations
-  for (const player in stats) {
-    const s = stats[player];
-    s.avgScore = (s.totalScore / s.games).toFixed(1);
-    s.avgCategoryScores = {};
-    categories.forEach(cat => {
-      s.avgCategoryScores[cat] = (s.totalCategoryScores[cat] / s.games).toFixed(1);
-    });
-  }
 
-  return stats;
+     if (p.total === winnersScore && playersWithScores.length > 1) {
+         s.wins++; s.streak++;
+         if (s.streak > s.maxStreak) s.maxStreak = s.streak;
+         s.losingStreak = 0;
+     } else { s.streak = 0; s.losingStreak++; if (s.losingStreak > s.maxLosingStreak) s.maxLosingStreak = s.losingStreak; }
+     s.totalPoints += p.total; s.totalScore += p.total;
+     if (p.total > s.highestScore) s.highestScore = p.total;
+    
+     playersWithScores.forEach(opponent => {
+       if (p.name === opponent.name) return;
+       if (!s.headToHead[opponent.name]) {
+         s.headToHead[opponent.name] = { wins: 0, losses: 0, totalGames: 0 };
+       }
+       s.headToHead[opponent.name].totalGames++;
+       if (p.total > opponent.total) { s.headToHead[opponent.name].wins++; }
+       else if (p.total < opponent.total) { s.headToHead[opponent.name].losses++; }
+     });
+   });
+ });
+
+
+ // Calculate averages and final stats
+ for (const player in stats) {
+   const s = stats[player];
+   s.avgScore = parseFloat((s.totalScore / s.games).toFixed(1));
+  
+   // Calculate percentage for ALL tracked categories
+   for (const cat in s.categorySuccesses) {
+     if (s.games > 0) {
+       s.categorySuccesses[cat] = parseFloat(((s.categorySuccesses[cat] / s.games) * 100).toFixed(1));
+     } else {
+       s.categorySuccesses[cat] = 0;
+     }
+   }
+ }
+  const overallAvgScore = totalGamesCounted > 0 ? parseFloat((totalAllPoints / totalGamesCounted).toFixed(1)) : 0;
+
+
+ // Sort Hall of Fame by score (desc) then date (asc)
+ hallOfFame.sort((a, b) => b.score - a.score || new Date(a.date) - new Date(b.date));
+
+
+ return { stats, hallOfFame, overallAvgScore };
 }
 
-function deletePlayerStats(playerName) {
-  showConfirmModal("Confirm Deletion", `Are you sure you want to delete all stats for ${playerName}?`, () => {
-    gameHistory = gameHistory.map(game => {
-      game.result = game.result.filter(p => p.name !== playerName);
-      return game;
-    });
-    localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
 
-    db.collection("yahtzeeGames").get().then(snapshot => {
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        const newResult = data.result.filter(p => p.name !== playerName);
-        if (newResult.length > 0) { doc.ref.update({result: newResult}); } 
-        else { doc.ref.delete(); }
-      });
-    });
+function renderHallOfFame(hallOfFame) {
+   let hofHtml = `
+     <div class="stat-card" style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: var(--text-dark);">
+       <h3 style="color: var(--text-dark);">🏆 Yahtzee Hall of Fame (400+) 🏆</h3>
+       <ul id="hallOfFameList">
+   `;
+  
+   if (hallOfFame.length === 0) {
+       hofHtml += `<li>No scores of ${HALL_OF_FAME_SCORE}+ yet!</li>`;
+   } else {
+       hallOfFame.forEach(entry => {
+           const dateStr = new Date(entry.date).toLocaleDateString();
+           const clickHandler = `viewHistoricalScoreCard('${entry.name}', ${entry.score}, '${entry.date}', ${JSON.stringify(entry.scorecard).replace(/'/g, "\\'")})`;
+           hofHtml += `
+             <li class="hof-entry" onclick="${clickHandler}">
+               <div class="hof-details">
+                   <span>${entry.name} ${entry.isManual ? ' (Manual)' : ''}</span>
+                   <span>${entry.score}</span>
+               </div>
+               <div class="hof-meta">
+                   Achieved: ${dateStr} (Click to view scorecard)
+               </div>
+             </li>
+           `;
+       });
+   }
 
-    updateStatsDashboard();
-  }, () => {});
+
+   hofHtml += `</ul>
+     <button onclick="showManualAddModal()" class="dashboard-btn" style="width: 100%; background: #9c27b0; margin-top: 10px;">Manually Add Historical Score</button>
+     </div>`;
+   return hofHtml;
 }
+
+
+function viewHistoricalScoreCard(name, total, date, scores) {
+   const container = document.getElementById("historicalScoreCard");
+   container.innerHTML = `<button onclick="document.getElementById('scoreViewModal').style.display='none'">Close</button>`;
+
+
+   // Check if scores object is null, undefined, or empty (indicates manual entry)
+   const isManual = !scores || Object.keys(scores).length === 0;
+
+
+   if (isManual) {
+       const dateStr = new Date(date).toLocaleDateString();
+       container.innerHTML = `
+           <h2>${name}</h2>
+           <p style="font-size: 1.2em; font-weight: bold; color: green;">Historical Score Added Manually</p>
+           <p><strong>Grand Total:</strong> ${total}</p>
+           <p><strong>Date Recorded:</strong> ${dateStr}</p>
+           <p style="font-style: italic;">No detailed category breakdown is available for manually entered games.</p>
+           <button onclick="document.getElementById('scoreViewModal').style.display='none'">Close</button>
+       `;
+   } else {
+       // Create a temporary player object for rendering purposes
+       const tempPlayer = {
+           name: `${name} (${total} points, ${new Date(date).toLocaleDateString()})`,
+           scores: scores,
+           // Set locked status based on whether a score exists
+           locked: Object.keys(scores).reduce((acc, cat) => {
+               acc[cat] = true;
+               return acc;
+           }, {}),
+           color: randomColor(), // Use a random color or base color for viewing
+           yahtzeeBonusCount: Math.floor((scores["Yahtzee Bonus"] || 0) / 100),
+           manual: false
+       };
+       // Temporarily replace the global players array with one containing only the historical player
+       const originalPlayers = players;
+       players = [tempPlayer];
+      
+       // Render the card into the modal container (excluding the "Close" button added above)
+       renderPlayerCard(false, 0, true);
+      
+       // Restore the original players list and append the close button
+       players = originalPlayers;
+       container.innerHTML += `<button onclick="document.getElementById('scoreViewModal').style.display='none'">Close</button>`;
+   }
+  
+   document.getElementById('scoreViewModal').style.display='flex';
+}
+
+
+// --- D3 Chart Functions ---
+
+
+// Global Tooltip
+const tooltip = d3.select("body").append("div")
+   .attr("class", "d3-tooltip")
+   .style("opacity", 0);
+
+
+function createTooltip(event, text) {
+   tooltip.html(text)
+          .style("left", (event.pageX + 10) + "px")
+          .style("top", (event.pageY - 28) + "px");
+   tooltip.transition().duration(200).style("opacity", .9);
+}
+
+
+function hideTooltip() {
+   tooltip.transition().duration(500).style("opacity", 0);
+}
+
+
+/**
+* Renders a bar chart comparing player average score vs. overall average score.
+*/
+function renderScoreDistributionChart(containerId, playerAvg, overallAvg) {
+   const data = [
+       { name: "Your Average", value: playerAvg, color: "#4CAF50" },
+       { name: "Overall Average", value: overallAvg, color: "#FF9800" }
+   ];
+
+
+   const container = document.getElementById(containerId);
+   container.innerHTML = '<h4>Average Score Comparison</h4>';
+  
+   const margin = {top: 10, right: 10, bottom: 40, left: 40};
+   const fixedViewBoxWidth = 300;
+   const width = fixedViewBoxWidth - margin.left - margin.right;
+   const height = 200 - margin.top - margin.bottom;
+
+
+   const svg = d3.select(container).append("svg")
+       .attr("width", "100%")
+       .attr("height", height + margin.top + margin.bottom)
+       .attr("viewBox", `0 0 ${fixedViewBoxWidth} ${height + margin.top + margin.bottom}`)
+       .append("g")
+       .attr("transform", `translate(${margin.left},${margin.top})`);
+      
+   const yMax = d3.max(data, d => d.value) * 1.1;
+
+
+   const x = d3.scaleBand()
+       .range([0, width])
+       .domain(data.map(d => d.name))
+       .padding(0.4);
+
+
+   const y = d3.scaleLinear()
+       .range([height, 0])
+       .domain([0, yMax < 50 ? 50 : yMax]);
+
+
+   svg.selectAll(".bar")
+       .data(data)
+       .enter().append("rect")
+       .attr("class", "bar")
+       .attr("x", d => x(d.name))
+       .attr("y", d => y(d.value))
+       .attr("width", x.bandwidth())
+       .attr("height", d => height - y(d.value))
+       .attr("fill", d => d.color)
+       .on("mouseover", (event, d) => createTooltip(event, `<strong>${d.name}:</strong> ${d.value} points`))
+       .on("mouseout", hideTooltip);
+
+
+   // X-Axis
+   svg.append("g")
+       .attr("transform", `translate(0,${height})`)
+       .call(d3.axisBottom(x).tickSize(0).tickPadding(10));
+
+
+   // Y-Axis
+   svg.append("g")
+       .call(d3.axisLeft(y).ticks(5));
+}
+
+
+/**
+* Renders a vertical bar chart for Lower Section Category Success Rates.
+*/
+function renderLowerSectionSuccessBarChart(containerId, successData, gamesPlayed) {
+   const rawData = lowerCatsForStats.map(cat => ({
+       category: cat.replace(/\s/g, '\n'), // Use line breaks for better labels on X-axis
+       percent: successData[cat] || 0
+   }));
+
+
+   if (gamesPlayed === 0) {
+       const container = document.getElementById(containerId);
+       container.innerHTML = '<h4>Lower Section Achievement Rate</h4><p style="text-align:center;">Not enough data yet (0 games).</p>';
+       return;
+   }
+
+
+   const container = document.getElementById(containerId);
+   container.innerHTML = '<h4>Lower Section Achievement Rate (%)</h4>';
+
+
+   const margin = {top: 10, right: 10, bottom: 80, left: 40};
+   const fixedViewBoxWidth = 500;
+   const width = fixedViewBoxWidth - margin.left - margin.right;
+   const height = 300 - margin.top - margin.bottom;
+
+
+   const svg = d3.select(container).append("svg")
+       .attr("width", "100%")
+       .attr("height", height + margin.top + margin.bottom)
+       .attr("viewBox", `0 0 ${fixedViewBoxWidth} ${height + margin.top + margin.bottom}`)
+       .append("g")
+       .attr("transform", `translate(${margin.left},${margin.top})`);
+      
+   const x = d3.scaleBand()
+       .range([0, width])
+       .domain(rawData.map(d => d.category))
+       .padding(0.2);
+
+
+   const y = d3.scaleLinear()
+       .range([height, 0])
+       .domain([0, 100]);
+
+
+   svg.selectAll(".bar")
+       .data(rawData)
+       .enter().append("rect")
+       .attr("class", "bar")
+       .attr("x", d => x(d.category))
+       .attr("y", d => y(d.percent))
+       .attr("width", x.bandwidth())
+       .attr("height", d => height - y(d.percent))
+       .attr("fill", "#03A9F4")
+       .on("mouseover", (event, d) => createTooltip(event, `<strong>${d.category.replace('\n', ' ')}:</strong> ${d.percent}%`))
+       .on("mouseout", hideTooltip);
+
+
+   // X-Axis (with rotated labels for clarity)
+   svg.append("g")
+       .attr("transform", `translate(0,${height})`)
+       .call(d3.axisBottom(x))
+       .selectAll("text") 
+         .style("text-anchor", "end")
+         .attr("dx", "-.8em")
+         .attr("dy", ".15em")
+         .attr("transform", "rotate(-45)");
+
+
+   // Y-Axis
+   svg.append("g")
+       .call(d3.axisLeft(y).ticks(5).tickFormat(d => d + "%"));
+}
+
+
+/**
+* Renders a horizontal bar chart for Head-to-Head win percentages.
+*/
+function renderHeadToHeadChart(containerId, headToHeadData) {
+   const data = Object.keys(headToHeadData).map(opponent => {
+       const record = headToHeadData[opponent];
+       const total = record.totalGames;
+       return {
+           opponent,
+           winPercent: total > 0 ? parseFloat(((record.wins / total) * 100).toFixed(1)) : 0,
+           lossPercent: total > 0 ? parseFloat(((record.losses / total) * 100).toFixed(1)) : 0,
+           totalGames: total,
+           record: `${record.wins}-${record.losses}`
+       };
+   }).filter(d => d.totalGames > 0).sort((a, b) => b.winPercent - a.winPercent); // Sort by highest win rate
+
+
+   const container = document.getElementById(containerId);
+   container.innerHTML = '<h4>Head-to-Head Records (Win %)</h4>';
+
+
+   if (data.length === 0) {
+       container.innerHTML += '<p style="text-align:center;">No head-to-head data yet (play more games with others!).</p>';
+       return;
+   }
+  
+   const margin = {top: 10, right: 40, bottom: 20, left: 100};
+   const fixedViewBoxWidth = 500;
+   const height = data.length * 40 + margin.top + margin.bottom;
+
+
+   const svg = d3.select(container).append("svg")
+       .attr("width", "100%")
+       .attr("height", height)
+       .attr("viewBox", `0 0 ${fixedViewBoxWidth} ${height}`)
+       .append("g")
+       .attr("transform", `translate(${margin.left},${margin.top})`);
+
+
+   const y = d3.scaleBand()
+       .range([0, height - margin.top - margin.bottom])
+       .domain(data.map(d => d.opponent))
+       .padding(0.2);
+
+
+   const x = d3.scaleLinear()
+       .range([0, fixedViewBoxWidth - margin.left - margin.right])
+       .domain([0, 100]); // Percentage scale
+
+
+   // Win Bars
+   svg.selectAll(".win-bar")
+       .data(data)
+       .enter().append("rect")
+       .attr("class", "win-bar")
+       .attr("y", d => y(d.opponent))
+       .attr("x", 0)
+       .attr("height", y.bandwidth())
+       .attr("width", d => x(d.winPercent))
+       .on("mouseover", (event, d) => createTooltip(event, `vs. <strong>${d.opponent}</strong><br>Win %: ${d.winPercent}%<br>Record: ${d.record}`))
+       .on("mouseout", hideTooltip);
+      
+   // Loss Bars (Draw the full 100% bar first, then cover with win bar for context)
+   svg.selectAll(".loss-bar-bg")
+       .data(data)
+       .enter().append("rect")
+       .attr("class", "loss-bar")
+       .attr("y", d => y(d.opponent))
+       .attr("x", 0)
+       .attr("height", y.bandwidth())
+       .attr("width", x(100))
+       .attr("opacity", 0.2); // Make the loss background subtle
+
+
+   // Y-Axis (Opponent Names)
+   svg.append("g")
+       .call(d3.axisLeft(y).tickSize(0).tickPadding(5))
+       .select(".domain").remove();
+      
+   // X-Axis (Top Percentage Label)
+   svg.append("g")
+       .attr("transform", `translate(0, ${-5})`)
+       .call(d3.axisTop(x).ticks(5).tickFormat(d => d + "%"));
+
+
+   // Add labels inside the bar (Win %)
+   svg.selectAll(".bar-label")
+       .data(data)
+       .enter().append("text")
+       .attr("class", "bar-label")
+       .attr("x", d => x(d.winPercent) - 5) // Position slightly before the end of the win bar
+       .attr("y", d => y(d.opponent) + y.bandwidth() / 2)
+       .attr("dy", ".35em")
+       .style("text-anchor", "end")
+       .style("font-size", "10px")
+       .style("fill", "white")
+       .text(d => d.winPercent > 10 ? `${d.winPercent}%` : '');
+      
+   // Add total record text on the far right
+   svg.selectAll(".record-text")
+       .data(data)
+       .enter().append("text")
+       .attr("class", "record-text")
+       .attr("x", x(100) + 5)
+       .attr("y", d => y(d.opponent) + y.bandwidth() / 2)
+       .attr("dy", ".35em")
+       .style("text-anchor", "start")
+       .style("font-size", "12px")
+       .style("fill", "var(--text-dark)")
+       .text(d => `(${d.record})`);
+}
+
+
+
+
+function toggleCharts(playerName, stats, button) {
+ const parent = button.parentElement;
+ let chartWrapper = parent.querySelector(".chart-container-wrapper");
+  if (chartWrapper) {
+   chartWrapper.style.display = chartWrapper.style.display === "none" ? "block" : "none";
+   button.innerText = chartWrapper.style.display === "none" ? "Show Performance Charts" : "Hide Performance Charts";
+   return;
+ }
+
+
+ // Create main wrapper
+ chartWrapper = document.createElement("div");
+ chartWrapper.className = "chart-container-wrapper";
+ parent.appendChild(chartWrapper);
+ button.innerText = "Hide Performance Charts";
+  // Create containers for individual charts
+ const chartContainer1 = document.createElement("div");
+ chartContainer1.id = `chart-dist-${playerName.replace(/\s/g, '-')}`;
+ chartWrapper.appendChild(chartContainer1);
+  const chartContainer2 = document.createElement("div");
+ chartContainer2.id = `chart-success-${playerName.replace(/\s/g, '-')}`;
+ chartWrapper.appendChild(chartContainer2);
+  const chartContainer3 = document.createElement("div");
+ chartContainer3.id = `chart-h2h-${playerName.replace(/\s/g, '-')}`;
+ chartWrapper.appendChild(chartContainer3);
+
+
+
+
+ // Render Chart 1: Score Distribution (Vertical Bar)
+ renderScoreDistributionChart(
+   chartContainer1.id,
+   stats.avgScore,
+   stats.overallAvgScore
+ );
+
+
+ // Render Chart 2: Lower Section Success (Vertical Bar)
+ renderLowerSectionSuccessBarChart(
+   chartContainer2.id,
+   stats.categorySuccesses,
+   stats.games
+ );
+  // Render Chart 3: Head-to-Head (Horizontal Bar)
+ renderHeadToHeadChart(
+   chartContainer3.id,
+   stats.headToHead
+ );
+}
+
+
+
 
 function updateStatsDashboard() {
-  const statsDiv = document.getElementById("statsDashboard");
-  statsDiv.innerHTML = "";
+ const statsDiv = document.getElementById("statsDashboard");
+ statsDiv.innerHTML = "";
 
-  const stats = calculateStats();
-  for (const player in stats) {
-    const s = stats[player];
-    const card = document.createElement("div");
-    card.className = "stat-card";
 
-    const header = document.createElement("h3");
-    header.innerText = player;
+ const { stats, hallOfFame, overallAvgScore } = calculateStats();
+  // Add Hall of Fame section first
+ statsDiv.innerHTML += renderHallOfFame(hallOfFame);
 
-    const content = document.createElement("div");
-    content.style.display = "none";
 
-    const scratchCats = Object.entries(s.scratchCounts).sort((a, b) => b[1] - a[1]);
-    const avgScores = Object.entries(s.avgCategoryScores);
+ for (const player in stats) {
+   const s = stats[player];
+   const card = document.createElement("div");
+   card.className = "stat-card";
+
+
+   const header = document.createElement("h3");
+   header.innerText = player;
+
+
+   const content = document.createElement("div");
+   content.style.display = "none";
+
+
+   const scratchCats = Object.entries(s.scratchCounts).sort((a, b) => b[1] - a[1]);
+  
+   // Head-to-Head display - The text display is removed as it's replaced by a chart
+   let headToHeadHtml = "";
+  
+   content.innerHTML = `
+     <div class="stat-item"><span>Games Played:</span><span>${s.games}</span></div>
+     <div class="stat-item"><span>Wins:</span><span>${s.wins}</span></div>
+     <div class="stat-item"><span>Win %:</span><span>${((s.wins / s.games) * 100).toFixed(1)}%</span></div>
+     <div class="stat-item"><span>Longest Winning Streak:</span><span>${s.maxStreak}</span></div>
+     <div class="stat-item"><span>Longest Losing Streak:</span><span>${s.maxLosingStreak}</span></div>
+     <div class="stat-item"><span>Avg Grand Total:</span><span>${s.avgScore}</span></div>
+     <div class="stat-item"><span>Highest Score:</span><span>${s.highestScore}</span></div>
+     <div class="stat-item"><span>Highest w/o Yahtzee:</span><span>${s.highestNoYahtzee}</span></div>
+     <div class="stat-item"><span>Most Yahtzees in Game:</span><span>${s.mostYahtzees}</span></div>
+     <div class="stat-item"><span>Times Got Bonus:</span><span>${s.bonusCount}</span></div>
+     <div class="stat-item"><span>% Games w/ Yahtzee:</span><span>${((s.gamesWithYahtzee / s.games) * 100).toFixed(1)}%</span></div>
+     <div class="stat-item"><span>Top Scratch:</span><span>${scratchCats[0] ? scratchCats[0][0] + ' (' + scratchCats[0][1] + ')' : "-"}</span></div>
+     ${headToHeadHtml}
+     <button class="dashboard-btn" onclick="deletePlayerStats('${player}')">Delete ${player}'s Stats</button>`;
+
+
+   const chartBtn = document.createElement("button");
+   chartBtn.className = "dashboard-btn";
+   chartBtn.innerText = "Show Performance Charts";
+   chartBtn.onclick = () => toggleCharts(player, { ...s, overallAvgScore }, chartBtn);
+   content.appendChild(chartBtn);
+
+
+   card.appendChild(header);
+   card.appendChild(content);
+
+
+   header.addEventListener("click", () => { content.style.display = content.style.display === "none" ? "block" : "none"; });
+   statsDiv.appendChild(card);
+ }
+
+
+ const deleteBtn = document.createElement("button");
+ deleteBtn.innerText = "Delete All Game Data";
+ deleteBtn.className = "dashboard-btn";
+ deleteBtn.onclick = () => showConfirmModal("Confirm Deletion", "Wipe all game history?", clearGameData, () => {});
+ statsDiv.appendChild(deleteBtn);
+}
+
+
+function showStats() {
+ hidePlayerCardContainer();
+ document.getElementById("statsDashboard").style.display = "block";
+ updateStatsDashboard();
+}
+function hideStats() {
+ document.getElementById("statsDashboard").style.display = "none";
+}
+
+
+function deletePlayerStats(playerName) {
+ showConfirmModal("Delete Stats", `Are you sure you want to delete all historical games where ${playerName} played?`,
+   () => {
+     // Filter out all games where the specified player played
+     gameHistory = gameHistory.filter(game => !game.result.some(p => p.name === playerName));
+     localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
     
-    // Head-to-Head display
-    let headToHeadHtml = "";
-    const sortedOpponents = Object.keys(s.headToHead).sort();
-    if (sortedOpponents.length > 0) {
-      headToHeadHtml += `<div class="stat-item" style="font-weight: bold; margin-top: 10px;">Head-to-Head:</div>`;
-      sortedOpponents.forEach(opponentName => {
-        const record = s.headToHead[opponentName];
-        headToHeadHtml += `<div class="stat-item"><span>vs. ${opponentName}:</span><span>${record.wins}-${record.losses}</span></div>`;
-      });
-    }
-
-    content.innerHTML = `
-      <div class="stat-item"><span>Games Played:</span><span>${s.games}</span></div>
-      <div class="stat-item"><span>Wins:</span><span>${s.wins}</span></div>
-      <div class="stat-item"><span>Win %:</span><span>${((s.wins / s.games) * 100).toFixed(1)}%</span></div>
-      <div class="stat-item"><span>Longest Winning Streak:</span><span>${s.maxStreak}</span></div>
-      <div class="stat-item"><span>Longest Losing Streak:</span><span>${s.maxLosingStreak}</span></div>
-      <div class="stat-item"><span>Avg Grand Total:</span><span>${s.avgScore}</span></div>
-      <div class="stat-item"><span>Highest Score:</span><span>${s.highestScore}</span></div>
-      <div class="stat-item"><span>Highest w/o Yahtzee:</span><span>${s.highestNoYahtzee}</span></div>
-      <div class="stat-item"><span>Most Yahtzees in Game:</span><span>${s.mostYahtzees}</span></div>
-      <div class="stat-item"><span>Times Got Bonus:</span><span>${s.bonusCount}</span></div>
-      <div class="stat-item"><span>% Games w/ Yahtzee:</span><span>${((s.gamesWithYahtzee / s.games) * 100).toFixed(1)}%</span></div>
-      <div class="stat-item"><span>Top Scratch:</span><span>${scratchCats[0] ? scratchCats[0][0] : "-"}</span></div>
-      <div class="stat-item"><span>2nd Scratch:</span><span>${scratchCats[1] ? scratchCats[1][0] : "-"}</span></div>
-      ${headToHeadHtml}
-      <button class="dashboard-btn" onclick="deletePlayerStats('${player}')">Delete ${player}'s Stats</button>`;
-
-    const chartBtn = document.createElement("button");
-    chartBtn.className = "dashboard-btn";
-    chartBtn.innerText = "Show Score Breakdown";
-    chartBtn.onclick = () => toggleChart(player, s.avgCategoryScores, chartBtn);
-    content.appendChild(chartBtn);
-
-    card.appendChild(header);
-    card.appendChild(content);
-
-    header.addEventListener("click", () => { content.style.display = content.style.display === "none" ? "block" : "none"; });
-    statsDiv.appendChild(card);
-  }
-
-  const deleteBtn = document.createElement("button");
-  deleteBtn.innerText = "Delete All Game Data";
-  deleteBtn.className = "dashboard-btn";
-  deleteBtn.onclick = () => showConfirmModal("Confirm Deletion", "Wipe all game history?", clearGameData, () => {});
-  statsDiv.appendChild(deleteBtn);
+     // Re-upload the filtered list to Firestore by deleting all and re-adding
+     // NOTE: For a real app, this should be done with more targeted deletions/updates.
+     db.collection("yahtzeeGames").get().then(snapshot => {
+         snapshot.docs.forEach(doc => doc.ref.delete());
+     }).then(() => {
+         gameHistory.forEach(game => db.collection("yahtzeeGames").add(game));
+         updateStatsDashboard();
+         showAlert("Success", `${playerName}'s stats have been removed.`);
+     });
+   },
+   () => {}
+ );
 }
 
-function showStats() { 
-  hidePlayerCardContainer();
-  document.getElementById("statsDashboard").style.display = "block"; 
-  updateStatsDashboard(); 
-}
-function hideStats() { 
-  document.getElementById("statsDashboard").style.display = "none"; 
-}
 
 function clearGameData() {
-  gameHistory = []; 
-  localStorage.removeItem("yahtzeeGameHistory");
-  db.collection("yahtzeeGames").get().then(snapshot => {
-    snapshot.docs.forEach(doc => doc.ref.delete());
-  });
-  updateStatsDashboard();
+ gameHistory = [];
+ localStorage.removeItem("yahtzeeGameHistory");
+ localStorage.removeItem("recentPlayers");
+ recentPlayers = [];
+ db.collection("yahtzeeGames").get().then(snapshot => {
+   snapshot.docs.forEach(doc => doc.ref.delete());
+ });
+ updateStatsDashboard();
+ renderRecentPlayers();
 }
 
-/**
- * Creates and toggles a d3.js bar chart for a player's average category scores.
- */
-function toggleChart(playerName, data, button) {
-  const parent = button.parentElement;
-  let chartContainer = parent.querySelector(".chart-container");
-  
-  if (chartContainer) {
-    chartContainer.style.display = chartContainer.style.display === "none" ? "block" : "none";
-    button.innerText = chartContainer.style.display === "none" ? "Show Score Breakdown" : "Hide Score Breakdown";
-    return;
-  }
 
-  chartContainer = document.createElement("div");
-  chartContainer.className = "chart-container";
-  parent.appendChild(chartContainer);
-  button.innerText = "Hide Score Breakdown";
 
-  const margin = {top: 20, right: 20, bottom: 90, left: 40},
-        width = 450 - margin.left - margin.right,
-        height = 300 - margin.top - margin.bottom;
 
-  const svg = d3.select(chartContainer).append("svg")
-      .attr("width", "100%")
-      .attr("height", height + margin.top + margin.bottom)
-      .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
-      
-  const categoriesData = categories.map(cat => ({
-    category: cat,
-    value: parseFloat(data[cat]) || 0
-  }));
+// Initial render for recent players
+renderRecentPlayers();
 
-  const x = d3.scaleBand()
-      .range([0, width])
-      .domain(categoriesData.map(d => d.category))
-      .padding(0.2);
-
-  const y = d3.scaleLinear()
-      .range([height, 0])
-      .domain([0, d3.max(categoriesData, d => d.value) + 10]);
-
-  // Tooltip
-  const tooltip = d3.select("body").append("div")
-      .attr("class", "d3-tooltip")
-      .style("opacity", 0)
-      .style("position", "absolute");
-
-  svg.selectAll(".bar")
-      .data(categoriesData)
-      .enter().append("rect")
-      .attr("class", "bar")
-      .attr("x", d => x(d.category))
-      .attr("y", d => y(d.value))
-      .attr("width", x.bandwidth())
-      .attr("height", d => height - y(d.value))
-      .attr("fill", "steelblue")
-      .on("mouseover", (event, d) => {
-        tooltip.transition().duration(200).style("opacity", .9);
-        tooltip.html(`<strong>${d.category}:</strong><br>${d.value} points`)
-               .style("left", (event.pageX) + 10 + "px")
-               .style("top", (event.pageY) - 28 + "px");
-      })
-      .on("mouseout", (d) => {
-        tooltip.transition().duration(500).style("opacity", 0);
-      });
-
-  svg.append("g")
-      .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x))
-      .selectAll("text")
-      .attr("transform", "rotate(-45)")
-      .style("text-anchor", "end");
-
-  svg.append("g")
-      .call(d3.axisLeft(y));
-}
 
 // --- Service Worker ---
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    navigator.serviceWorker.register('service-worker.js')
-      .then(reg => console.log('Service Worker registered.', reg))
-      .catch(err => console.log('Service Worker registration failed:', err));
-  });
+ window.addEventListener('load', function() {
+   navigator.serviceWorker.register('service-worker.js')
+     .then(reg => console.log('Service Worker registered.', reg))
+     .catch(err => console.log('Service Worker registration failed:', err));
+ });
 }
 </script>
 </body>
 </html>
+
 
 
