@@ -30,7 +30,26 @@
    --color-on-track: #fff;
    --color-above: #4CAF50; /* Subtle green */
    --color-below: #F44336; /* Subtle red */
+   --shadow-color: rgba(0,0,0,0.1);
+   --section-bg-color: white;
+   --subtle-border-color: #ddd;
+   --button-secondary-bg: #e0e0e0;
  }
+
+ body.dark-mode {
+    --primary-color: #1e88e5;
+    --secondary-color: #42a5f5;
+    --background-color: #121212;
+    --card-background: linear-gradient(135deg, #1e1e1e 0%, #2c2c2c 100%);
+    --text-light: #e0e0e0;
+    --text-dark: #e0e0e0;
+    --border-color: rgba(255,255,255,0.1);
+    --shadow-color: rgba(0,0,0,0.5);
+    --section-bg-color: #1e1e1e;
+    --subtle-border-color: #333;
+    --button-secondary-bg: #333;
+ }
+
  body {
    font-family: 'Arial', sans-serif;
    background: var(--background-color);
@@ -40,22 +59,23 @@
    -webkit-font-smoothing: antialiased;
    -moz-osx-font-smoothing: grayscale;
    touch-action: pan-y; /* Allow vertical scroll, prevent browser swipe for navigation */
+   transition: background-color 0.3s, color 0.3s;
  }
  h1 {
    text-align: center;
    margin: 20px 0;
    color: var(--primary-color);
  }
- #playerSetup, .score-card {
+ #playerSetup, .score-card, #settingsPage {
    max-width: 500px;
    margin: auto;
    padding: 20px;
    border-radius: 12px;
-   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-   background: white;
+   box-shadow: 0 4px 12px var(--shadow-color);
+   background: var(--section-bg-color);
    box-sizing: border-box;
  }
- #playerSetup {
+ #playerSetup, #settingsPage {
    display: flex;
    flex-direction: column;
    gap: 12px;
@@ -64,7 +84,7 @@
    font-size: 16px;
    padding: 10px;
    border-radius: 8px;
-   border: 1px solid #ddd;
+   border: 1px solid var(--subtle-border-color);
    transition: all 0.3s ease;
  }
  button {
@@ -72,7 +92,10 @@
    color: var(--text-light);
    cursor: pointer;
    border: none;
-   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+   box-shadow: 0 2px 6px var(--shadow-color);
+ }
+ body.dark-mode button {
+     color: #fff;
  }
  button:hover {
    background: var(--secondary-color);
@@ -108,7 +131,7 @@
  .score-input, select {
    width: 80px;
    text-align: center;
-   background: white;
+   background: var(--section-bg-color);
    color: var(--text-dark);
  }
  .quick-buttons {
@@ -132,10 +155,10 @@
  #footer {
    position: sticky;
    bottom: 0;
-   background: white;
+   background: var(--section-bg-color);
    padding: 15px;
    text-align: center;
-   box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+   box-shadow: 0 -2px 10px var(--shadow-color);
    display: none;
    z-index: 50;
  }
@@ -151,10 +174,14 @@
    background: #eee;
    border-radius: 8px;
    font-weight: bold;
-   color: var(--text-dark);
+   color: #333; /* Keep dark text for readability */
    width: 100%;
    overflow-x: auto;
    white-space: nowrap;
+ }
+ body.dark-mode #runningTotals {
+     background: #2c2c2c;
+     color: var(--text-dark);
  }
  .totals { font-weight: bold; margin-top: 15px; }
  /* Bonus Tracker Styling */
@@ -182,7 +209,7 @@
    border-radius: 12px;
    padding: 15px;
    margin-bottom: 15px;
-   box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+   box-shadow: 0 4px 12px var(--shadow-color);
  }
  .stat-card h3 {
    margin: 0 0 10px 0;
@@ -210,6 +237,9 @@
    padding: 8px;
    border-radius: 6px;
  }
+ body.dark-mode .player-list-item {
+     background: #2c2c2c;
+ }
  .player-list-item span {
    display: flex;
    gap: 4px;
@@ -224,10 +254,10 @@
    flex-wrap: wrap;
    gap: 8px;
    padding: 10px 0;
-   border-top: 1px solid #ddd;
+   border-top: 1px solid var(--subtle-border-color);
  }
  #recentPlayersList button {
-   background: #e0e0e0;
+   background: var(--button-secondary-bg);
    color: var(--text-dark);
    padding: 6px 10px;
    font-size: 14px;
@@ -263,6 +293,83 @@
    color: #666;
    margin-top: 4px;
  }
+ body.dark-mode .hof-entry {
+     color: #333; /* Keep dark text for readability on gold background */
+ }
+
+ /* Settings Page */
+ .settings-section {
+    padding: 15px 0;
+    border-bottom: 1px solid var(--subtle-border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+ }
+ .settings-section:last-child {
+     border-bottom: none;
+ }
+ .settings-section h3 {
+    margin: 0 0 15px 0;
+    width: 100%;
+    text-align: center;
+    color: var(--primary-color);
+ }
+ .settings-section button {
+    width: 100%;
+    margin-top: 10px;
+ }
+ .settings-section button.danger {
+    background: var(--color-below);
+ }
+
+/* Toggle Switch CSS */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 60px;
+  height: 34px;
+}
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  transition: .4s;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 26px;
+  width: 26px;
+  left: 4px;
+  bottom: 4px;
+  background-color: white;
+  transition: .4s;
+}
+input:checked + .slider {
+  background-color: var(--primary-color);
+}
+input:focus + .slider {
+  box-shadow: 0 0 1px var(--primary-color);
+}
+input:checked + .slider:before {
+  transform: translateX(26px);
+}
+.slider.round {
+  border-radius: 34px;
+}
+.slider.round:before {
+  border-radius: 50%;
+}
 
 
  /* Modal Styling */
@@ -279,7 +386,7 @@
    z-index: 1000;
  }
  .modal {
-   background: white;
+   background: var(--section-bg-color);
    padding: 25px;
    border-radius: 12px;
    max-width: 90%;
@@ -299,6 +406,9 @@
    padding: 10px 15px;
    margin: 10px 0;
  }
+ body.dark-mode button.dashboard-btn {
+     color: #fff;
+ }
  button.dashboard-btn:hover {
    background: #003f6b;
  }
@@ -308,13 +418,17 @@
    padding: 10px;
    background: rgba(255, 255, 255, 0.9);
    border-radius: 8px;
-   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-   color: var(--text-dark);
+   box-shadow: 0 2px 8px var(--shadow-color);
+   color: #333;
+ }
+ body.dark-mode .chart-container-wrapper {
+     background: rgba(44, 44, 44, 0.9);
+     color: var(--text-dark);
  }
  .chart-container-wrapper h4 {
    margin-top: 0;
    padding-bottom: 5px;
-   border-bottom: 1px solid #ddd;
+   border-bottom: 1px solid var(--subtle-border-color);
    font-size: 1.1em;
  }
  .d3-tooltip {
@@ -336,6 +450,100 @@
  .win-bar { fill: #4CAF50; } /* Green for Wins */
  .loss-bar { fill: #F44336; } /* Red for Losses */
 
+ /* Result Modal Styling */
+.result-winner {
+  background: linear-gradient(135deg, #fde472, #ffc107);
+  color: #333;
+  padding: 20px;
+  border-radius: 12px;
+  text-align: center;
+  margin-bottom: 20px;
+  position: relative;
+  border: 2px solid #fff;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+.result-winner-trophy {
+  font-size: 4em;
+  margin-bottom: 10px;
+  animation: trophy-pop 0.6s ease-out forwards;
+  transform: scale(0);
+}
+.result-winner-name {
+  font-size: 1.8em;
+  font-weight: bold;
+}
+.result-winner-score {
+  font-size: 1.2em;
+  color: #555;
+}
+.result-winner-hof {
+  font-size: 1.1em;
+  font-weight: bold;
+  color: #a46d06; /* A darker gold/bronze color */
+  margin-top: 10px;
+  animation: hof-glow 2s infinite alternate;
+}
+
+@keyframes hof-glow {
+  from {
+    text-shadow: 0 0 5px #fff, 0 0 10px #ffc107;
+  }
+  to {
+    text-shadow: 0 0 10px #fff, 0 0 20px #fde472;
+  }
+}
+
+@keyframes trophy-pop {
+  0% { transform: scale(0) rotate(-30deg); }
+  60% { transform: scale(1.2) rotate(10deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.result-player-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.result-player-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  background: #f0f0f0;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  color: #333;
+}
+body.dark-mode .result-player-item {
+    background: #2c2c2c;
+    color: var(--text-dark);
+}
+.result-player-item span:first-child {
+  font-weight: bold;
+}
+
+/* Confetti Animation */
+.confetti {
+  position: absolute;
+  width: 8px;
+  height: 16px;
+  background: #f00;
+  top: -20px;
+  opacity: 0.8;
+  animation: confetti-fall 3s linear infinite;
+}
+@keyframes confetti-fall {
+  from { transform: translateY(0) rotate(0deg); }
+  to { transform: translateY(110vh) rotate(720deg); }
+}
+
+/* FIX: Added max-height and overflow to allow scrolling on the historical scorecard modal */
+#historicalScoreCard, #rulesModal .modal {
+  max-height: 85vh;
+  overflow-y: auto;
+}
 
  @keyframes fadeIn {
    from { opacity: 0; transform: translateY(-20px); }
@@ -365,6 +573,32 @@
    padding: 8px 15px;
    border-radius: 50px;
  }
+ .turn-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  background-color: #4CAF50;
+  border-radius: 50%;
+  margin-left: 8px;
+  box-shadow: 0 0 6px #4CAF50, 0 0 10px #4CAF50;
+  vertical-align: middle;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 10px rgba(76, 175, 80, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
+  }
+}
 </style>
 </head>
 <body>
@@ -374,20 +608,23 @@
 
 
 <div id="playerSetup">
- <input type="text" id="playerName" placeholder="Enter player name">
- <button id="addPlayerBtn" onclick="addPlayer()">Add Player</button>
+ <div style="display: flex; gap: 8px; align-items: center;">
+    <input type="text" id="playerName" placeholder="Enter player name" style="flex: 1;">
+    <button aria-label="Settings" style="flex-shrink: 0; width: 44px; height: 44px; background: #888; font-size: 24px; padding: 0; line-height: 44px;" onclick="showSettings()">&#x2699;</button>
+ </div>
+ <div id="recentPlayers">
+  <h4 style="margin: 0 0 5px 0; color: var(--secondary-color);">Recent Players:</h4>
+  <div id="recentPlayersList">No recent players.</div>
+ </div>
+ <div style="display: flex; gap: 8px;">
+    <button id="addPlayerBtn" onclick="addPlayer()" style="flex: 1;">Add Player</button>
+    <button id="startGameBtn" onclick="startGame()" disabled style="flex: 1;">Start Game</button>
+ </div>
  <div id="playerList"></div>
- <button id="startGameBtn" onclick="startGame()" disabled>Start Game</button>
  <div style="display: flex; gap: 8px; margin-top: 10px;">
-   <button style="width: 50%;" onclick="showStats()">View Stats</button>
-   <button style="width: 50%;" onclick="hideStats()">Hide Stats</button>
+   <button style="flex: 1;" onclick="showStats()">View Stats</button>
+   <button style="flex: 1;" onclick="hideStats()">Hide Stats</button>
  </div>
-  <div id="recentPlayers" style="margin-top: 15px;">
-   <h4 style="margin: 0 0 5px 0; color: var(--secondary-color);">Recent Players:</h4>
-   <div id="recentPlayersList">No recent players.</div>
- </div>
-  <!-- Updated Button for Refresh/Sync with new color -->
- <button style="background: #673ab7; margin-top: 20px; width: 50%; align-self: center;" onclick="refreshAndSyncGame()">Update and Refresh App</button>
 </div>
 
 
@@ -410,6 +647,40 @@
 <div id="statsDashboard"></div>
 
 
+<div id="settingsPage" style="display:none;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <button onclick="hideSettings()" style="width: auto; padding: 10px 15px;">&#x2190; Back</button>
+        <h2 style="color: var(--primary-color); margin: 0; flex-grow: 1; text-align: center;">Settings</h2>
+    </div>
+
+    <div class="settings-section">
+        <label for="darkModeToggle" style="font-weight: bold;">Dark Mode</label>
+        <label class="switch">
+            <input type="checkbox" id="darkModeToggle" onchange="toggleDarkMode()">
+            <span class="slider round"></span>
+        </label>
+    </div>
+
+    <div class="settings-section">
+        <button onclick="showRulesModal()">Game Rules & Scoring Guide</button>
+    </div>
+    
+    <div class="settings-section">
+        <h3>Data Management</h3>
+        <button onclick="exportData()">Export Backup</button>
+        <button onclick="document.getElementById('importFile').click()">Import Backup</button>
+    </div>
+    
+    <div class="settings-section">
+        <h3>Advanced</h3>
+        <button onclick="refreshAndSyncGame()">Refresh / Check for Updates</button>
+        <button class="danger" onclick="clearGameData()">Delete All Game Data</button>
+    </div>
+</div>
+
+
+<!-- Hidden file input for the import feature -->
+<input type="file" id="importFile" accept=".json" style="display: none;">
 
 
 <!-- Global Alert Modal -->
@@ -435,18 +706,21 @@
 
 <!-- Game Result Modal -->
 <div id="resultModal" class="modal-overlay">
- <div class="modal" style="width: 500px; max-width: 90%;">
-   <h3 id="resultTitle"></h3>
-   <pre id="resultScores" style="text-align: left; background: #eee; padding: 10px; border-radius: 8px; color: var(--text-dark);"></pre>
-   <p id="hofMessage"></p>
-   <div style="display: flex; gap: 10px;">
-    
-<button onclick="endGame(false, true)" style="flex: 1; background-color: var(--color-above);">Play Again</button>
-    
-<button onclick="endGame(false, false)" style="flex: 1; background-color: var(--color-below);">Home Screen</button>
-   </div>
+  <div class="modal" style="width: 400px; max-width: 90%; padding: 15px; position: relative; background: #fff; overflow: hidden;">
+    <div id="confetti-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 1;"></div>
+    <div id="resultWinnerContainer" style="position: relative; z-index: 2;">
+       <!-- JS will populate winner info here -->
+    </div>
+    <ul id="resultPlayerListContainer" class="result-player-list" style="position: relative; z-index: 2;">
+       <!-- JS will populate other players here -->
+    </ul>
+    <p id="hofMessage" style="margin: 15px 0; position: relative; z-index: 2; font-style: italic; color: #666;"></p>
+    <div style="display: flex; gap: 10px; margin-top: 10px; position: relative; z-index: 2;">
+      <button onclick="endGame(false, true)" style="flex: 1; background-color: var(--color-above);">Play Again</button>
+      <button onclick="endGame(false, false)" style="flex: 1; background-color: var(--color-below);">Home Screen</button>
+    </div>
+  </div>
  </div>
-</div>
 
 
 <!-- Historical Scorecard View Modal -->
@@ -471,6 +745,48 @@
  </div>
 </div>
 
+<!-- Rules Modal -->
+<div id="rulesModal" class="modal-overlay">
+ <div class="modal" style="text-align: left;">
+   <h3 style="text-align: center;">How to Play</h3>
+   <div style="max-height: 60vh; overflow-y: auto; padding-right: 15px;">
+       <h4>Taking a Turn</h4>
+       <p>On each turn, you may roll the dice up to <strong>3 times</strong>.</p>
+       <ol style="padding-left: 20px;">
+           <li><strong>First Roll:</strong> Roll all 5 dice. You can set aside any "keepers."</li>
+           <li><strong>Second & Third Rolls:</strong> Reroll any or all of the dice as you wish.</li>
+       </ol>
+       <p>After your final roll, you must enter a score or a zero in one of the 13 category boxes.</p>
+       <hr>
+       <h4>Upper Section Scoring</h4>
+       <p><strong>Aces to Sixes:</strong> Score the sum of only the dice with the specified number. For example, if you roll three 4s, you would score 12 in the "Fours" box.</p>
+       <p><strong>Upper Bonus:</strong> If your total score for the Upper Section is <strong>63 or more</strong>, you earn a <strong>35-point bonus</strong>.</p>
+       <hr>
+       <h4>Lower Section Scoring</h4>
+       <p><strong>3 of a Kind:</strong> At least three dice of the same number. Score the total of all 5 dice.</p>
+       <p><strong>4 of a Kind:</strong> At least four dice of the same number. Score the total of all 5 dice.</p>
+       <p><strong>Full House (Three of one, two of another):</strong> Scores <strong>25 points</strong>.</p>
+       <p><strong>Small Straight (Sequence of 4):</strong> Scores <strong>30 points</strong>.</p>
+       <p><strong>Large Straight (Sequence of 5):</strong> Scores <strong>40 points</strong>.</p>
+       <p><strong>Yahtzee (Five of a Kind):</strong> Scores <strong>50 points</strong>.</p>
+       <p><strong>Chance:</strong> Score the total of all 5 dice. This is a catch-all for any roll.</p>
+       <hr>
+       <h4>Yahtzee Bonus & Joker Rules</h4>
+       <p>If you roll a Yahtzee but have already scored 50 in the Yahtzee box, you get a <strong>100-point bonus!</strong> You must also use this roll to score in another category, following these "Joker Rules":</p>
+       <ul style="padding-left: 20px;">
+           <li>You must fill the corresponding Upper Section box (e.g., if you rolled five 4s, you must score in the Fours box).</li>
+           <li>If the Upper Section box is already filled, you may score it in any open Lower Section category.</li>
+           <li>If all applicable boxes are filled, you must enter a zero in an open Upper Section box.</li>
+       </ul>
+       <hr>
+       <p style="text-align: center; margin-top: 20px;">
+           <a href="https://officialgamerules.org/wp-content/uploads/2025/02/Yahtzee-Instructions.pdf" target="_blank" rel="noopener noreferrer">View Full Official Rules (PDF)</a>
+       </p>
+   </div>
+   <button onclick="closeRulesModal()" style="margin-top: 20px;">Close</button>
+ </div>
+</div>
+
 
 
 
@@ -491,9 +807,14 @@ const firebaseConfig = {
  messagingSenderId: "651930856297",
  appId: "1:651930856297:web:cce851e3b669499fb552bf8"
 };
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-db.enablePersistence().catch(err => console.log("Firestore persistence error:", err));
+let db;
+try {
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    db.enablePersistence().catch(err => console.log("Firestore persistence error:", err));
+} catch (e) {
+    console.error("Firebase initialization failed:", e);
+}
 
 
 // --- Constants ---
@@ -519,6 +840,8 @@ let turnMode = false;
 let lastAction = null;
 let yahtzeeBonusUsedThisTurn = false;
 let recentPlayers = JSON.parse(localStorage.getItem("recentPlayers") || "[]");
+let firestoreListener = null; // Holds the unsubscribe function for the listener
+let activeHallOfFame = []; // Holds the currently displayed HOF data for click handling
 
 
 // --- Swiping State ---
@@ -546,9 +869,10 @@ function getUpperSectionScore(player) {
 
 function updateRunningTotals() {
  const runningDiv = document.getElementById("runningTotals");
- runningDiv.innerText = players.map(p => {
+ runningDiv.innerHTML = players.map(p => {
    const total = getPlayerGrandTotal(p);
-   return `${p.name}: ${total}${players.indexOf(p) === currentPlayerIndex ? ' (Turn)' : ''}`;
+   const isTurn = players.indexOf(p) === currentPlayerIndex;
+   return `${p.name}: ${total}${isTurn ? '<span class="turn-indicator"></span>' : ''}`;
  }).join(' | ');
 }
 
@@ -562,14 +886,25 @@ function hidePlayerCardContainer() {
 
 // --- Firestore snapshot ---
 // This listener keeps gameHistory synced in real-time
-db.collection("yahtzeeGames").onSnapshot(snapshot => {
- gameHistory = snapshot.docs.map(doc => doc.data());
- localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
- // Call updateStatsDashboard to ensure stats are refreshed whenever data changes
- if (document.getElementById("statsDashboard").style.display !== "none") {
-     updateStatsDashboard();
- }
-});
+function attachFirestoreListener() {
+    if (db && !firestoreListener) { // Check if DB is initialized and listener doesn't exist
+        console.log("Attaching Firestore listener...");
+        firestoreListener = db.collection("yahtzeeGames").onSnapshot(snapshot => {
+            // No need to check for local writes; the listener is detached during local writes.
+            console.log("Data received from Firestore.");
+            gameHistory = snapshot.docs.map(doc => doc.data());
+            localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
+            // Only update stats if the dashboard is visible to prevent background processing
+            if (document.getElementById("statsDashboard").style.display === "block") {
+                updateStatsDashboard();
+            }
+        }, err => {
+            console.error("Snapshot listener error:", err);
+        });
+    }
+}
+// Initial attachment of the listener on page load
+attachFirestoreListener();
 
 
 // --- Player Management & Recent Players ---
@@ -707,7 +1042,7 @@ function renderPlayerCard(animateCard = true, idx = displayPlayerIndex, forModal
  }
 
 
- card.innerHTML = `<h2>${player.name}${isCurrentTurn && !forModal ? ' (YOUR TURN)' : ''}</h2>`;
+ card.innerHTML = `<h2>${player.name}${isCurrentTurn && !forModal ? '<span class="turn-indicator"></span>' : ''}</h2>`;
   let upperTotal = 0;
  let bonusTrackerScore = 0;
 
@@ -1003,17 +1338,22 @@ function addManualScore() {
 
 
    // 4. Save to Firestore
-   db.collection("yahtzeeGames").add(newGameEntry)
-     .then(() => {
-         showAlert("Success", `Historical score of ${score} for ${name} added successfully.`);
-         closeManualAddModal();
-         // The onSnapshot listener will refresh the dashboard, but we force it here for immediate feedback
-         updateStatsDashboard();
-     })
-     .catch(error => {
-         console.error("Error adding manual document: ", error);
-         showAlert("Error", "Failed to save score to the cloud.");
-     });
+   if (db) {
+        db.collection("yahtzeeGames").add(newGameEntry)
+        .then(() => {
+            showAlert("Success", `Historical score of ${score} for ${name} added successfully.`);
+            closeManualAddModal();
+            updateStatsDashboard();
+        })
+        .catch(error => {
+            console.error("Error adding manual document: ", error);
+            showAlert("Error", "Failed to save score to the cloud.");
+        });
+   } else {
+        showAlert("Offline", "Score saved locally. It will sync when you are back online.");
+        closeManualAddModal();
+        updateStatsDashboard();
+   }
 }
 
 
@@ -1047,18 +1387,58 @@ function closeAlertModal() {
 function showResultModal(sortedPlayers, savedToHof) {
  const winner = sortedPlayers[0];
  const winnerTotal = getPlayerGrandTotal(winner);
-  document.getElementById("resultTitle").innerHTML = `🎉 **${winner.name}** wins with ${winnerTotal} points! 🎉`;
 
+ const winnerContainer = document.getElementById("resultWinnerContainer");
+ const playerListContainer = document.getElementById("resultPlayerListContainer");
+ const confettiContainer = document.getElementById("confetti-container");
 
- const resultsText = sortedPlayers.map((p, i) => {
+ // Clear previous results
+ winnerContainer.innerHTML = "";
+ playerListContainer.innerHTML = "";
+ confettiContainer.innerHTML = ""; // Clear old confetti
+
+ // Check if the winner made it to the Hall of Fame
+ const winnerInHof = winnerTotal >= HALL_OF_FAME_SCORE;
+ const hofMessageHTML = winnerInHof ? `<div class="result-winner-hof">🌟 Welcome to the Hall of Fame! 🌟</div>` : "";
+
+ // Create Winner Card
+ winnerContainer.innerHTML = `
+   <div class="result-winner">
+     <div class="result-winner-trophy">🏆</div>
+     <div class="result-winner-name">${winner.name} Wins!</div>
+     <div class="result-winner-score">with ${winnerTotal} points</div>
+     ${hofMessageHTML}
+   </div>
+ `;
+
+ // Create list of other players
+ sortedPlayers.slice(1).forEach(p => {
    const total = getPlayerGrandTotal(p);
-   return `${i === 0 ? '🏆 ' : ''}${p.name.padEnd(10)}: ${total}`;
- }).join('\n');
-  document.getElementById("resultScores").innerText = resultsText;
-  document.getElementById("hofMessage").innerText = savedToHof
-   ? "One or more players achieved 400+ points and were added to the Hall of Fame!"
+      const isHof = total >= HALL_OF_FAME_SCORE;
+   const li = document.createElement("li");
+   li.className = "result-player-item";
+   li.innerHTML = `<span>${p.name} ${isHof ? '🌟' : ''}</span> <span>${total} points</span>`;
+   playerListContainer.appendChild(li);
+ });
+
+
+ // Update HOF message
+ document.getElementById("hofMessage").innerText = savedToHof
+   ? "Amazing scores! High-scorers have been added to the Hall of Fame."
    : "";
-  document.getElementById("resultModal").style.display = "flex";
+
+ // Show the modal
+ document.getElementById("resultModal").style.display = "flex";
+
+ // Add confetti
+ for(let i = 0; i < 50; i++) {
+     const confetti = document.createElement('div');
+     confetti.className = 'confetti';
+     confetti.style.left = Math.random() * 100 + 'vw';
+     confetti.style.animationDelay = Math.random() * 3 + 's';
+     confetti.style.backgroundColor = `hsl(${Math.random() * 360}, 100%, 50%)`;
+     confettiContainer.appendChild(confetti);
+ }
 }
 
 
@@ -1076,7 +1456,9 @@ function endGame(save, playAgain = false, backToSetup = false) {
    const newGameEntry = {date: new Date().toISOString(), result: finalScores};
    gameHistory.push(newGameEntry);
    localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
-   db.collection("yahtzeeGames").add(newGameEntry);
+   if (db) {
+       db.collection("yahtzeeGames").add(newGameEntry);
+   }
 
 
    // Update recent players list
@@ -1133,11 +1515,7 @@ function refreshAndSyncGame() {
            // Yes: Force a hard refresh to bypass cache and get new code/sync data
            window.location.reload(true);
        },
-       () => {
-           // No: Simply force a stats re-render using existing data (already synced by onSnapshot)
-           updateStatsDashboard();
-           showAlert("Data Sync Complete", "The stats dashboard has been refreshed with the latest data from the database.");
-       }
+       () => {}
    );
 }
 
@@ -1273,37 +1651,76 @@ function calculateStats() {
 
 
 function renderHallOfFame(hallOfFame) {
-   let hofHtml = `
-     <div class="stat-card" style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: var(--text-dark);">
-       <h3 style="color: var(--text-dark);">🏆 Yahtzee Hall of Fame (400+) 🏆</h3>
-       <ul id="hallOfFameList">
-   `;
+    // Calculate the tally of HOF appearances
+    const hofTally = hallOfFame.reduce((acc, entry) => {
+        acc[entry.name] = (acc[entry.name] || 0) + 1;
+        return acc;
+    }, {});
+
+    // Sort the tally for display
+    const sortedTally = Object.entries(hofTally).sort((a, b) => b[1] - a[1]);
+
+    let hofHtml = `
+      <div class="stat-card" style="background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%); color: var(--text-dark);">
+        <h3 style="color: var(--text-dark);">🏆 Yahtzee Hall of Fame (400+) 🏆</h3>
+        <ul id="hallOfFameList">
+    `;
   
-   if (hallOfFame.length === 0) {
-       hofHtml += `<li>No scores of ${HALL_OF_FAME_SCORE}+ yet!</li>`;
-   } else {
-       hallOfFame.forEach(entry => {
-           const dateStr = new Date(entry.date).toLocaleDateString();
-           const clickHandler = `viewHistoricalScoreCard('${entry.name}', ${entry.score}, '${entry.date}', ${JSON.stringify(entry.scorecard).replace(/'/g, "\\'")})`;
-           hofHtml += `
-             <li class="hof-entry" onclick="${clickHandler}">
-               <div class="hof-details">
-                   <span>${entry.name} ${entry.isManual ? ' (Manual)' : ''}</span>
-                   <span>${entry.score}</span>
-               </div>
-               <div class="hof-meta">
-                   Achieved: ${dateStr} (Click to view scorecard)
-               </div>
-             </li>
-           `;
-       });
-   }
+    if (hallOfFame.length === 0) {
+        hofHtml += `<li>No scores of ${HALL_OF_FAME_SCORE}+ yet!</li>`;
+    } else {
+        hallOfFame.forEach((entry, index) => {
+            const dateStr = new Date(entry.date).toLocaleDateString();
+            const clickHandler = `viewHistoricalScoreCardByIndex(${index})`;
+            hofHtml += `
+              <li class="hof-entry" onclick="${clickHandler}">
+                <div class="hof-details">
+                    <span>${entry.name} ${entry.isManual ? ' (Manual)' : ''}</span>
+                    <span>${entry.score}</span>
+                </div>
+                <div class="hof-meta">
+                    Achieved: ${dateStr} (Click to view scorecard)
+                </div>
+              </li>
+            `;
+        });
+    }
+
+    hofHtml += `</ul>`;
+
+    // Add the tally section if there are any entries
+    if (sortedTally.length > 0) {
+        hofHtml += `
+          <div style="margin-top: 20px; border-top: 1px solid rgba(0,0,0,0.2); padding-top: 15px;">
+            <h4 style="margin: 0 0 10px 0; text-align: center;">Total Hall of Fame Appearances</h4>
+            <div style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;">
+                ${sortedTally.map(([name, count]) => `
+                    <span style="background: rgba(0,0,0,0.1); padding: 5px 10px; border-radius: 15px; font-size: 0.9em;">
+                        <strong>${name}:</strong> ${count}
+                    </span>
+                `).join('')}
+            </div>
+          </div>
+        `;
+    }
+
+    hofHtml += `
+      <button onclick="showManualAddModal()" class="dashboard-btn" style="width: 100%; background: #9c27b0; margin-top: 20px;">Manually Add Historical Score</button>
+      </div>`;
+    return hofHtml;
+}
 
 
-   hofHtml += `</ul>
-     <button onclick="showManualAddModal()" class="dashboard-btn" style="width: 100%; background: #9c27b0; margin-top: 10px;">Manually Add Historical Score</button>
-     </div>`;
-   return hofHtml;
+// NEW FUNCTION: Handles the click from the HOF list by looking up the data by index.
+function viewHistoricalScoreCardByIndex(index) {
+    const entry = activeHallOfFame[index];
+    if (entry) {
+        // Call the original function with the safe, retrieved data.
+        viewHistoricalScoreCard(entry.name, entry.score, entry.date, entry.scorecard);
+    } else {
+        console.error("Could not find Hall of Fame entry for index:", index);
+        showAlert("Error", "Could not retrieve the scorecard for that entry.");
+    }
 }
 
 
@@ -1687,13 +2104,40 @@ function toggleCharts(playerName, stats, button) {
 
 
 function updateStatsDashboard() {
- const statsDiv = document.getElementById("statsDashboard");
- statsDiv.innerHTML = "";
+    const statsDiv = document.getElementById("statsDashboard");
+    statsDiv.innerHTML = ""; // Clear existing stats
 
+    const { stats, hallOfFame, overallAvgScore } = calculateStats();
+    activeHallOfFame = hallOfFame; // Store the HOF data for the click handler
 
- const { stats, hallOfFame, overallAvgScore } = calculateStats();
-  // Add Hall of Fame section first
- statsDiv.innerHTML += renderHallOfFame(hallOfFame);
+    // Create and add the Hall of Fame button
+    const hofButton = document.createElement("button");
+    hofButton.innerText = "🏆 View Hall of Fame 🏆";
+    hofButton.className = "dashboard-btn";
+    hofButton.style.background = "linear-gradient(135deg, #FFD700 0%, #FFA500 100%)";
+    hofButton.style.color = "var(--text-dark)";
+    hofButton.style.width = "100%";
+    hofButton.style.marginBottom = "15px";
+    
+    // Create the container for the Hall of Fame list (initially hidden)
+    const hofContainer = document.createElement("div");
+    hofContainer.id = "hallOfFameContainer";
+    hofContainer.style.display = "none";
+    
+    // Add click event to the button
+    hofButton.onclick = () => {
+        // Always re-render the list when opening to ensure it's up to date.
+        hofContainer.innerHTML = renderHallOfFame(hallOfFame);
+        
+        // Toggle visibility
+        const isHidden = hofContainer.style.display === "none";
+        hofContainer.style.display = isHidden ? "block" : "none";
+        hofButton.innerText = isHidden ? "Hide Hall of Fame" : "🏆 View Hall of Fame 🏆";
+    };
+
+    // Add the button and container to the main stats div
+    statsDiv.appendChild(hofButton);
+    statsDiv.appendChild(hofContainer);
 
 
  for (const player in stats) {
@@ -1712,9 +2156,6 @@ function updateStatsDashboard() {
 
    const scratchCats = Object.entries(s.scratchCounts).sort((a, b) => b[1] - a[1]);
   
-   // Head-to-Head display - The text display is removed as it's replaced by a chart
-   let headToHeadHtml = "";
-  
    content.innerHTML = `
      <div class="stat-item"><span>Games Played:</span><span>${s.games}</span></div>
      <div class="stat-item"><span>Wins:</span><span>${s.wins}</span></div>
@@ -1728,7 +2169,6 @@ function updateStatsDashboard() {
      <div class="stat-item"><span>Times Got Bonus:</span><span>${s.bonusCount}</span></div>
      <div class="stat-item"><span>% Games w/ Yahtzee:</span><span>${((s.gamesWithYahtzee / s.games) * 100).toFixed(1)}%</span></div>
      <div class="stat-item"><span>Top Scratch:</span><span>${scratchCats[0] ? scratchCats[0][0] + ' (' + scratchCats[0][1] + ')' : "-"}</span></div>
-     ${headToHeadHtml}
      <button class="dashboard-btn" onclick="deletePlayerStats('${player}')">Delete ${player}'s Stats</button>`;
 
 
@@ -1746,13 +2186,6 @@ function updateStatsDashboard() {
    header.addEventListener("click", () => { content.style.display = content.style.display === "none" ? "block" : "none"; });
    statsDiv.appendChild(card);
  }
-
-
- const deleteBtn = document.createElement("button");
- deleteBtn.innerText = "Delete All Game Data";
- deleteBtn.className = "dashboard-btn";
- deleteBtn.onclick = () => showConfirmModal("Confirm Deletion", "Wipe all game history?", clearGameData, () => {});
- statsDiv.appendChild(deleteBtn);
 }
 
 
@@ -1765,46 +2198,173 @@ function hideStats() {
  document.getElementById("statsDashboard").style.display = "none";
 }
 
+// --- Settings Page ---
+function showSettings() {
+    document.getElementById('playerSetup').style.display = 'none';
+    document.getElementById('statsDashboard').style.display = 'none';
+    document.getElementById('settingsPage').style.display = 'flex';
+}
+
+function hideSettings() {
+    document.getElementById('settingsPage').style.display = 'none';
+    document.getElementById('playerSetup').style.display = 'flex';
+}
+
+// --- Dark Mode ---
+function toggleDarkMode() {
+    document.body.classList.toggle('dark-mode');
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+    document.getElementById('darkModeToggle').checked = isDarkMode;
+}
+
+function loadTheme() {
+    const theme = localStorage.getItem('theme');
+    if (theme === 'dark') {
+        document.body.classList.add('dark-mode');
+        document.getElementById('darkModeToggle').checked = true;
+    }
+}
+
+// --- Rules Modal ---
+function showRulesModal() {
+    document.getElementById('rulesModal').style.display = 'flex';
+}
+function closeRulesModal() {
+    document.getElementById('rulesModal').style.display = 'none';
+}
+
 
 function deletePlayerStats(playerName) {
- showConfirmModal("Delete Stats", `Are you sure you want to delete all historical games where ${playerName} played?`,
-   () => {
-     // Filter out all games where the specified player played
-     gameHistory = gameHistory.filter(game => !game.result.some(p => p.name === playerName));
-     localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
-    
-     // Re-upload the filtered list to Firestore by deleting all and re-adding
-     // NOTE: For a real app, this should be done with more targeted deletions/updates.
-     db.collection("yahtzeeGames").get().then(snapshot => {
-         snapshot.docs.forEach(doc => doc.ref.delete());
-     }).then(() => {
-         gameHistory.forEach(game => db.collection("yahtzeeGames").add(game));
-         updateStatsDashboard();
-         showAlert("Success", `${playerName}'s stats have been removed.`);
-     });
-   },
-   () => {}
- );
+    showConfirmModal("Delete Stats", `Are you sure you want to remove ${playerName} from all historical games and delete their stats? This cannot be undone.`,
+        () => {
+            // Create a deep, local copy for modification, completely disconnected from the live listener.
+            let currentHistory = JSON.parse(JSON.stringify(gameHistory));
+
+            // Use .map to create a new history, modifying games along the way
+            const newGameHistory = currentHistory.map(game => {
+                const newResult = game.result.filter(p => p.name !== playerName);
+                if (newResult.length === 0) {
+                    return null; // This game will be filtered out
+                }
+                return { ...game, result: newResult };
+            }).filter(game => game !== null); // Remove the nullified games
+
+            // Now, safely overwrite the database with this corrected version
+            overwriteData(newGameHistory, `Successfully removed ${playerName}'s stats.`);
+        },
+        () => {} // Action for "No"
+    );
 }
+
+// --- Data Backup and Restore Functions ---
+function exportData() {
+    if (gameHistory.length === 0) {
+        return showAlert("No Data", "There is no game data to export.");
+    }
+    const dataStr = JSON.stringify(gameHistory, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const downloadLink = document.createElement('a');
+    downloadLink.href = URL.createObjectURL(dataBlob);
+    const date = new Date();
+    const dateString = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+    downloadLink.download = `yahtzee-backup-${dateString}.json`;
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    showAlert("Export Successful", "Your data has been saved to a .json file.");
+}
+
+function handleFileImport(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const importedData = JSON.parse(e.target.result);
+            if (!Array.isArray(importedData)) {
+                throw new Error("Invalid file format.");
+            }
+            showConfirmModal(
+                "Confirm Import",
+                "This will overwrite ALL current game data with the backup file. This cannot be undone. Are you sure?",
+                () => overwriteData(importedData, "Your data has been successfully restored."),
+                () => { document.getElementById('importFile').value = ''; }
+            );
+        } catch (error) {
+            showAlert("Import Error", `Failed to parse the file. Please ensure it is a valid backup. Error: ${error.message}`);
+            document.getElementById('importFile').value = '';
+        }
+    };
+    reader.readAsText(file);
+}
+
+function overwriteData(newData, successMessage) {
+    if (!db) {
+        showAlert("Offline", "Cannot perform this action while offline.");
+        return;
+    }
+
+    // 1. Detach the listener to prevent race conditions
+    if (firestoreListener) {
+        console.log("Detaching Firestore listener for overwrite.");
+        firestoreListener(); // This is the unsubscribe function
+        firestoreListener = null;
+    }
+
+    showAlert("Processing...", "Please wait. Your data is being updated.");
+    
+    // 2. Update local state immediately for a responsive feel
+    gameHistory = newData;
+    localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
+    
+    // If stats are visible, update them. Otherwise, they'll update when next opened.
+    if (document.getElementById('statsDashboard').style.display === 'block') {
+        updateStatsDashboard();
+    }
+
+    // 3. Sync with Firestore: Wipe the old collection and upload the new one.
+    db.collection("yahtzeeGames").get().then(snapshot => {
+        const deletePromises = snapshot.docs.map(doc => doc.ref.delete());
+        return Promise.all(deletePromises);
+    }).then(() => {
+        const addPromises = newData.map(game => db.collection("yahtzeeGames").add(game));
+        return Promise.all(addPromises);
+    }).then(() => {
+        showAlert("Success", successMessage);
+    }).catch(err => {
+        console.error("Error during data overwrite: ", err);
+        showAlert("Error", "An error occurred while syncing with the database.");
+    }).finally(() => {
+        // 4. Re-attach the listener regardless of success or failure
+        console.log("Re-attaching Firestore listener.");
+        attachFirestoreListener();
+        // Reset file input in case it was used for an import
+        document.getElementById('importFile').value = '';
+    });
+}
+
+document.getElementById('importFile').addEventListener('change', handleFileImport, false);
 
 
 function clearGameData() {
- gameHistory = [];
- localStorage.removeItem("yahtzeeGameHistory");
- localStorage.removeItem("recentPlayers");
- recentPlayers = [];
- db.collection("yahtzeeGames").get().then(snapshot => {
-   snapshot.docs.forEach(doc => doc.ref.delete());
- });
- updateStatsDashboard();
- renderRecentPlayers();
+    showConfirmModal("Delete All Data", "Are you sure you want to delete ALL game data from this device and the cloud? This is permanent.",
+        () => {
+            overwriteData([], "All game data has been deleted.");
+            // Also clear recent players, as they are derived from game data
+            recentPlayers = [];
+            localStorage.removeItem("recentPlayers");
+            renderRecentPlayers();
+        },
+        () => {}
+    );
 }
-
-
 
 
 // Initial render for recent players
 renderRecentPlayers();
+loadTheme(); // Load saved theme on startup
 
 
 // --- Service Worker ---
@@ -1818,6 +2378,11 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
+
+
+
+
 
 
 
