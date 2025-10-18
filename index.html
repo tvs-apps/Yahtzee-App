@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Yahtzee Scorekeeper</title>
 
-
-
-
+<!-- PWA Support -->
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#007acc">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,8 +13,8 @@
 <meta name="apple-mobile-web-app-title" content="Yahtzee Scorekeeper">
 <link rel="apple-touch-icon" href="icons/icon-192x192.png">
 
-
-
+<!-- D3.js for data visualization -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
 <style>
  :root {
@@ -178,6 +176,19 @@
    width: 100%;
    overflow-x: auto;
    white-space: nowrap;
+ }
+  .footer-player-link {
+    cursor: pointer;
+    padding: 2px 5px;
+    border-radius: 4px;
+    transition: background-color 0.2s;
+    display: inline-block;
+ }
+ .footer-player-link:hover {
+    background-color: rgba(0,0,0,0.1);
+ }
+ body.dark-mode .footer-player-link:hover {
+    background-color: rgba(255,255,255,0.1);
  }
  body.dark-mode #runningTotals {
      background: #2c2c2c;
@@ -639,7 +650,7 @@ body.dark-mode .result-player-item {
 <div id="footer">
  <div id="footer-content">
    <div id="runningTotals"></div>
-   <button onclick="showConfirmModal('End Game', 'Are you sure you want to end the current game?', () => endGame(true), () => endGame(false))">End Game</button>
+   <button onclick="confirmAbandonGame()">Abandon Game</button>
  </div>
 </div>
 
@@ -706,7 +717,7 @@ body.dark-mode .result-player-item {
 
 <!-- Game Result Modal -->
 <div id="resultModal" class="modal-overlay">
-  <div class="modal" style="width: 400px; max-width: 90%; padding: 15px; position: relative; background: #fff; overflow: hidden;">
+  <div class="modal" style="width: 400px; max-width: 90%; padding: 15px; position: relative; background: var(--section-bg-color); overflow: hidden;">
     <div id="confetti-container" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: hidden; pointer-events: none; z-index: 1;"></div>
     <div id="resultWinnerContainer" style="position: relative; z-index: 2;">
        <!-- JS will populate winner info here -->
@@ -715,9 +726,12 @@ body.dark-mode .result-player-item {
        <!-- JS will populate other players here -->
     </ul>
     <p id="hofMessage" style="margin: 15px 0; position: relative; z-index: 2; font-style: italic; color: #666;"></p>
-    <div style="display: flex; gap: 10px; margin-top: 10px; position: relative; z-index: 2;">
-      <button onclick="endGame(false, true)" style="flex: 1; background-color: var(--color-above);">Play Again</button>
-      <button onclick="endGame(false, false)" style="flex: 1; background-color: var(--color-below);">Home Screen</button>
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px; position: relative; z-index: 2;">
+      <button onclick="viewFinalScorecards()" style="background-color: var(--secondary-color);">View Scorecards</button>
+      <div style="display: flex; gap: 10px;">
+        <button onclick="startNewGameWithSamePlayers()" style="flex: 1; background-color: var(--color-above);">Play Again</button>
+        <button onclick="resetToSetupScreen()" style="flex: 1; background-color: var(--color-below);">Home Screen</button>
+      </div>
     </div>
   </div>
  </div>
@@ -792,8 +806,6 @@ body.dark-mode .result-player-item {
 
 <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.1.0/firebase-firestore-compat.js"></script>
-<!-- D3 script updated to a stable CDN link -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 
 
 <script>
@@ -842,7 +854,7 @@ let yahtzeeBonusUsedThisTurn = false;
 let recentPlayers = JSON.parse(localStorage.getItem("recentPlayers") || "[]");
 let firestoreListener = null; // Holds the unsubscribe function for the listener
 let activeHallOfFame = []; // Holds the currently displayed HOF data for click handling
-
+let lastFinishedGamePlayers = []; // Store the final state of players for viewing scorecards
 
 // --- Swiping State ---
 let touchStartX = 0;
@@ -869,10 +881,10 @@ function getUpperSectionScore(player) {
 
 function updateRunningTotals() {
  const runningDiv = document.getElementById("runningTotals");
- runningDiv.innerHTML = players.map(p => {
+ runningDiv.innerHTML = players.map((p, index) => {
    const total = getPlayerGrandTotal(p);
-   const isTurn = players.indexOf(p) === currentPlayerIndex;
-   return `${p.name}: ${total}${isTurn ? '<span class="turn-indicator"></span>' : ''}`;
+   const isTurn = index === currentPlayerIndex;
+   return `<span class="footer-player-link" onclick="jumpToPlayerCard(${index})">${p.name}: ${total}${isTurn ? '<span class="turn-indicator"></span>' : ''}</span>`;
  }).join(' | ');
 }
 
@@ -1029,7 +1041,8 @@ function startGame(keepPlayers = false) {
 // --- Scorecard Rendering (Updated for Bonus Tracker & Totals) ---
 function renderPlayerCard(animateCard = true, idx = displayPlayerIndex, forModal = false) {
  const container = forModal ? document.getElementById("historicalScoreCard") : document.getElementById("playerCardContainer");
- const player = players[idx];
+ const playerSource = lastFinishedGamePlayers.length > 0 ? lastFinishedGamePlayers : players; // Use the correct player data source
+ const player = playerSource[idx];
  const isCurrentTurn = idx === currentPlayerIndex;
   // Prevent rendering full card for manual history entries inside the view modal
  if (forModal && player.manual) return;
@@ -1042,7 +1055,7 @@ function renderPlayerCard(animateCard = true, idx = displayPlayerIndex, forModal
  }
 
 
- card.innerHTML = `<h2>${player.name}${isCurrentTurn && !forModal ? '<span class="turn-indicator"></span>' : ''}</h2>`;
+ card.innerHTML = `<h2>${player.name}${isCurrentTurn && !forModal && turnMode ? '<span class="turn-indicator"></span>' : ''}</h2>`;
   let upperTotal = 0;
  let bonusTrackerScore = 0;
 
@@ -1156,37 +1169,44 @@ function renderPlayerCard(animateCard = true, idx = displayPlayerIndex, forModal
 
 // --- Swiping Logic (4) ---
 function handleTouchStart(evt) {
-   if (players.length < 2 || !turnMode) return;
+   const inGame = turnMode;
+   const postGame = lastFinishedGamePlayers.length > 0;
+   if ((!inGame && !postGame) || players.length < 2) return;
    touchStartX = evt.touches[0].clientX;
 }
 
 
 function handleTouchMove(evt) {
-   if (players.length < 2 || !turnMode) return;
+    const inGame = turnMode;
+   const postGame = lastFinishedGamePlayers.length > 0;
+   if ((!inGame && !postGame) || players.length < 2) return;
    touchEndX = evt.touches[0].clientX;
 }
 
 
 function handleTouchEnd() {
-   if (players.length < 2 || !turnMode || touchEndX === 0) return;
-  
+   const inGame = turnMode;
+   const postGame = lastFinishedGamePlayers.length > 0;
+   if ((!inGame && !postGame) || (inGame && players.length < 2) || (postGame && lastFinishedGamePlayers.length < 2) || touchEndX === 0) return;
+
    const diff = touchStartX - touchEndX;
+   const playerSource = postGame ? lastFinishedGamePlayers : players;
 
 
    if (Math.abs(diff) > SWIPE_THRESHOLD) {
        if (diff > 0) {
            // Swiped Left (Next Player)
-           displayPlayerIndex = (displayPlayerIndex + 1) % players.length;
+           displayPlayerIndex = (displayPlayerIndex + 1) % playerSource.length;
        } else {
            // Swiped Right (Previous Player)
-           displayPlayerIndex = (displayPlayerIndex - 1 + players.length) % players.length;
+           displayPlayerIndex = (displayPlayerIndex - 1 + playerSource.length) % playerSource.length;
        }
       
-       renderPlayerCard(false, displayPlayerIndex, false);
+       renderPlayerCard(false, displayPlayerIndex, postGame);
       
        // Show "Return to Turn" button if not on current player's card
        const swipeActions = document.getElementById("swipeActions");
-       if (displayPlayerIndex !== currentPlayerIndex) {
+       if (inGame && displayPlayerIndex !== currentPlayerIndex) {
            swipeActions.style.display = "block";
            document.getElementById("returnToTurnBtn").innerText = `Return to ${players[currentPlayerIndex].name}'s Turn`;
        } else {
@@ -1205,6 +1225,23 @@ function returnToTurn() {
 }
 
 
+// Jumps directly to a player's scorecard from the footer link.
+function jumpToPlayerCard(index) {
+    const inGame = turnMode;
+    const postGame = lastFinishedGamePlayers.length > 0;
+    if (!inGame && !postGame) return;
+    
+    displayPlayerIndex = index;
+    renderPlayerCard(false, displayPlayerIndex, false); // FIX: Always render to the main container, not the modal
+
+    const swipeActions = document.getElementById("swipeActions");
+    if (inGame && displayPlayerIndex !== currentPlayerIndex) {
+        swipeActions.style.display = "block";
+        document.getElementById("returnToTurnBtn").innerText = `Return to ${players[currentPlayerIndex].name}'s Turn`;
+    } else {
+        swipeActions.style.display = "none";
+    }
+}
 
 
 // --- Score Handling ---
@@ -1245,6 +1282,9 @@ function updateScore(cat, val) {
 
  renderPlayerCard(animate, currentPlayerIndex, false);
  document.getElementById("swipeActions").style.display = "none"; // Hide swipe actions on score input
+ 
+ // NEW: Check if the game is over after every score update
+ checkGameCompletion();
 }
 
 
@@ -1442,65 +1482,125 @@ function showResultModal(sortedPlayers, savedToHof) {
 }
 
 
-// New logic for end game (1)
-function endGame(save, playAgain = false, backToSetup = false) {
-  const sortedPlayers = [...players].sort((a, b) => getPlayerGrandTotal(b) - getPlayerGrandTotal(a));
- const finalScores = sortedPlayers.map(p => ({
-   name: p.name,
-   scores: p.scores,
-   total: getPlayerGrandTotal(p)
- }));
-  let savedToHof = false;
- if (save) {
-   // Save to game history and Firestore
-   const newGameEntry = {date: new Date().toISOString(), result: finalScores};
-   gameHistory.push(newGameEntry);
-   localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
-   if (db) {
-       db.collection("yahtzeeGames").add(newGameEntry);
-   }
+// NEW: Function to check if all players have filled all 13 categories
+function checkGameCompletion() {
+    if (!turnMode || players.length === 0) return;
 
+    // A game requires 13 locked categories for each player. Yahtzee Bonus is separate.
+    const requiredLockedCount = 13;
+    const allPlayersFinished = players.every(p => {
+        // We count keys, but must exclude the "Yahtzee Bonus" if it's locked, as it's not a mandatory turn.
+        const lockedCategories = Object.keys(p.locked).filter(cat => cat !== "Yahtzee Bonus");
+        return lockedCategories.length >= requiredLockedCount;
+    });
 
-   // Update recent players list
-   const playerNames = players.map(p => p.name);
-   updateRecentPlayers(playerNames);
+    if (allPlayersFinished) {
+        console.log("All players have finished! Ending game automatically.");
+        handleAutomaticGameEnd();
+    }
+}
 
+// NEW: This function handles the automatic end of a completed game.
+function handleAutomaticGameEnd() {
+    lastFinishedGamePlayers = JSON.parse(JSON.stringify(players)); // Save a snapshot
+    const sortedPlayers = [...players].sort((a, b) => getPlayerGrandTotal(b) - getPlayerGrandTotal(a));
+    const finalScores = sortedPlayers.map(p => ({
+        name: p.name,
+        scores: p.scores,
+        total: getPlayerGrandTotal(p)
+    }));
 
-   // Check for Hall of Fame qualification
-   if (finalScores.some(p => p.total >= HALL_OF_FAME_SCORE)) {
-     savedToHof = true;
-   }
+    // Save to game history and Firestore
+    const newGameEntry = { date: new Date().toISOString(), result: finalScores };
+    gameHistory.push(newGameEntry);
+    localStorage.setItem("yahtzeeGameHistory", JSON.stringify(gameHistory));
+    if (db) {
+        db.collection("yahtzeeGames").add(newGameEntry);
+    }
 
+    // Update recent players list
+    const playerNames = players.map(p => p.name);
+    updateRecentPlayers(playerNames);
 
-   // Show result modal and ask for next action
-   showResultModal(sortedPlayers, savedToHof);
-   hidePlayerCardContainer();
-   return; // Exit here if saving, let the modal buttons handle next step
- }
-  // If we reach here, it's after the modal choice (playAgain or backToSetup/Home Screen)
- document.getElementById("resultModal").style.display = "none";
-  if (playAgain) { // This handles "Play Again" (Keep Names)
-   const currentPlayers = players.map(p => ({
-       name: p.name,
-       color: p.color
-   }));
-   // Keep player objects but reset scores/locks/bonuses
-   players = currentPlayers.map(p => ({
-     name: p.name, scores: {}, locked: {}, color: p.color, yahtzeeBonusCount: 0
-   }));
-   startGame(true); // startGame(true) re-initializes and starts
-   return;
- }
-  // Back to setup (This handles "Home Screen")
- players = [];
- currentPlayerIndex = 0;
- turnMode = false;
- yahtzeeBonusUsedThisTurn = false;
-  document.getElementById("playerSetup").style.display = "flex";
- document.getElementById("playerCardContainer").style.display = "none";
- document.getElementById("footer").style.display = "none";
- renderPlayerList();
- updateStatsDashboard();
+    // Check for Hall of Fame qualification
+    const savedToHof = finalScores.some(p => p.total >= HALL_OF_FAME_SCORE);
+
+    // Show result modal
+    showResultModal(sortedPlayers, savedToHof);
+    hidePlayerCardContainer();
+    turnMode = false; // Officially end the game
+}
+
+// NEW: This function is called from the "Abandon Game" button in the footer.
+function confirmAbandonGame() {
+    showConfirmModal(
+        "Abandon Game?",
+        "Are you sure you want to end the current game? The results will NOT be saved.",
+        () => resetToSetupScreen(), // On "Yes", reset without saving
+        () => {} // On "No", do nothing
+    );
+}
+
+// NEW: Function to start a new game with the same set of players.
+function startNewGameWithSamePlayers() {
+    document.getElementById("resultModal").style.display = "none";
+    // Keep player objects but reset scores/locks/bonuses
+    const currentPlayers = lastFinishedGamePlayers.length > 0 ? lastFinishedGamePlayers : players;
+    players = currentPlayers.map(p => ({
+        name: p.name, scores: {}, locked: {}, color: p.color, yahtzeeBonusCount: 0
+    }));
+    startGame(true); // startGame(true) re-initializes and starts
+}
+
+// NEW: Function to view scorecards after a game ends.
+function viewFinalScorecards() {
+    document.getElementById("resultModal").style.display = "none"; // Hide the results modal
+    
+    // Set up the game view to show the completed scorecards
+    displayPlayerIndex = 0; // Start with the first player
+    turnMode = false; // Ensure no turn indicator shows
+    
+    document.getElementById("playerSetup").style.display = "none";
+    document.getElementById("playerCardContainer").style.display = "block";
+    
+    // Modify footer to show a "Back to Home" button instead of "Abandon Game"
+    const footer = document.getElementById("footer");
+    footer.style.display = "flex";
+    document.getElementById("runningTotals").innerHTML = lastFinishedGamePlayers.map((p, index) => {
+        return `<span class="footer-player-link" onclick="jumpToPlayerCard(${index})">${p.name}: ${getPlayerGrandTotal(p)}</span>`;
+    }).join(' | ');
+    document.getElementById("footer-content").querySelector('button').innerText = "Back to Home Screen";
+    document.getElementById("footer-content").querySelector('button').onclick = resetToSetupScreen;
+    
+    // Enable swiping through scorecards
+    const container = document.getElementById("playerCardContainer");
+    container.addEventListener('touchstart', handleTouchStart, false);       
+    container.addEventListener('touchmove', handleTouchMove, false);
+    container.addEventListener('touchend', handleTouchEnd, false);
+
+    renderPlayerCard(false, 0, false); // FIX: Render to the main container, not the modal
+}
+
+// NEW: Unified function to reset the game and return to the home screen.
+function resetToSetupScreen() {
+    document.getElementById("resultModal").style.display = "none";
+    players = [];
+    lastFinishedGamePlayers = [];
+    currentPlayerIndex = 0;
+    turnMode = false;
+    yahtzeeBonusUsedThisTurn = false;
+    
+    document.getElementById("playerSetup").style.display = "flex";
+    hidePlayerCardContainer();
+    
+    // Restore footer to its default "Abandon Game" state
+    const footerButton = document.getElementById("footer-content").querySelector('button');
+    if (footerButton) {
+        footerButton.innerText = "Abandon Game";
+        footerButton.onclick = confirmAbandonGame;
+    }
+    
+    renderPlayerList();
 }
 
 
@@ -1757,15 +1857,11 @@ function viewHistoricalScoreCard(name, total, date, scores) {
            yahtzeeBonusCount: Math.floor((scores["Yahtzee Bonus"] || 0) / 100),
            manual: false
        };
-       // Temporarily replace the global players array with one containing only the historical player
-       const originalPlayers = players;
-       players = [tempPlayer];
-      
-       // Render the card into the modal container (excluding the "Close" button added above)
-       renderPlayerCard(false, 0, true);
-      
-       // Restore the original players list and append the close button
-       players = originalPlayers;
+       // Temporarily use lastFinishedGamePlayers to render the card
+       lastFinishedGamePlayers = [tempPlayer];
+       renderPlayerCard(false, 0, true); // Render into the modal
+       lastFinishedGamePlayers = []; // Clear it after use
+       
        container.innerHTML += `<button onclick="document.getElementById('scoreViewModal').style.display='none'">Close</button>`;
    }
   
@@ -2378,6 +2474,9 @@ if ('serviceWorker' in navigator) {
 </script>
 </body>
 </html>
+
+
+
 
 
 
