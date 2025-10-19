@@ -610,6 +610,23 @@ body.dark-mode .result-player-item {
     box-shadow: 0 0 0 0 rgba(76, 175, 80, 0);
   }
 }
+
+/* PWA Update Notification */
+#update-notification {
+    display: none;
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: var(--primary-color);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 50px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    z-index: 2000;
+    cursor: pointer;
+    font-weight: bold;
+}
 </style>
 </head>
 <body>
@@ -684,7 +701,8 @@ body.dark-mode .result-player-item {
     
     <div class="settings-section">
         <h3>Advanced</h3>
-        <button onclick="refreshAndSyncGame()">Refresh / Check for Updates</button>
+        <button onclick="forceUpdate()">Force App Update</button>
+        <p style="font-size: 0.8em; color: #888; width: 100%; text-align: center; margin: 0;">Use this after an update to get the latest version for the homescreen app.</p>
         <button class="danger" onclick="clearGameData()">Delete All Game Data</button>
     </div>
 </div>
@@ -801,6 +819,11 @@ body.dark-mode .result-player-item {
  </div>
 </div>
 
+
+<!-- PWA Update Notification -->
+<div id="update-notification" onclick="installUpdate()">
+    Update Ready
+</div>
 
 
 
@@ -1607,12 +1630,11 @@ function resetToSetupScreen() {
 /**
 * Forces an application code refresh and data sync.
 */
-function refreshAndSyncGame() {
+function forceUpdate() {
    showConfirmModal(
-       "Update & Refresh",
-       "This will reload the app to fetch the latest code and sync all data from other devices. Continue?",
+       "Force App Update",
+       "This will reload the app to fetch the latest code from the server. This is useful for the homescreen app if it hasn't updated automatically. Continue?",
        () => {
-           // Yes: Force a hard refresh to bypass cache and get new code/sync data
            window.location.reload(true);
        },
        () => {}
@@ -2463,17 +2485,54 @@ renderRecentPlayers();
 loadTheme(); // Load saved theme on startup
 
 
-// --- Service Worker ---
-if ('serviceWorker' in navigator) {
- window.addEventListener('load', function() {
-   navigator.serviceWorker.register('service-worker.js')
-     .then(reg => console.log('Service Worker registered.', reg))
-     .catch(err => console.log('Service Worker registration failed:', err));
- });
+// --- PWA Update Logic ---
+let newWorker;
+
+function showUpdateBar() {
+    const notification = document.getElementById('update-notification');
+    notification.style.display = 'block';
 }
+
+function installUpdate() {
+    newWorker.postMessage({ action: 'skipWaiting' });
+}
+
+window.addEventListener('load', () => {
+    if ('serviceWorker' in navigator) {
+        // The service worker can only be registered on http/https origins.
+        // This check prevents an error in environments that use other protocols (e.g., 'blob:').
+        if (!['http:', 'https:'].includes(window.location.protocol)) {
+            console.warn('Service Worker registration skipped: The protocol "' + window.location.protocol + '" is not supported.');
+            return;
+        }
+
+        navigator.serviceWorker.register('./service-worker.js').then(reg => {
+            reg.addEventListener('updatefound', () => {
+                newWorker = reg.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        showUpdateBar();
+                    }
+                });
+            });
+        }).catch(error => {
+            console.error('Service Worker registration failed:', error);
+        });
+
+        let refreshing;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (refreshing) return;
+            window.location.reload();
+            refreshing = true;
+        });
+    }
+});
+
 </script>
 </body>
 </html>
+
+
 
 
 
