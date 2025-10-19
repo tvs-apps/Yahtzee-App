@@ -1642,14 +1642,25 @@ function resetToSetupScreen() {
 * Forces an application code refresh and data sync.
 */
 function forceUpdate() {
-   showConfirmModal(
-       "Force App Update",
-       "This will reload the app to fetch the latest code from the server. This is useful for the homescreen app if it hasn't updated automatically. Continue?",
-       () => {
-           window.location.reload(true);
-       },
-       () => {}
-   );
+   if (newWorker) {
+       showConfirmModal(
+           "Install Update?",
+           "A new version of the app is ready. Install now?",
+           () => {
+               newWorker.postMessage({ action: 'skipWaiting' });
+           },
+           () => {}
+       );
+   } else {
+       showConfirmModal(
+           "Force App Refresh",
+           "No new update detected. Would you like to force a refresh to check for the latest version from the server?",
+           () => {
+               window.location.reload(true);
+           },
+           () => {}
+       );
+   }
 }
 
 
@@ -2524,22 +2535,24 @@ loadTheme(); // Load saved theme on startup
 
 // --- PWA Update Logic ---
 let newWorker;
+let updateAvailable = false;
 
 function showUpdateBar() {
+    updateAvailable = true;
     const notification = document.getElementById('update-notification');
     notification.style.display = 'block';
 }
 
 function installUpdate() {
-    newWorker.postMessage({ action: 'skipWaiting' });
+    if(newWorker) {
+        newWorker.postMessage({ action: 'skipWaiting' });
+    }
 }
 
 window.addEventListener('load', () => {
     if ('serviceWorker' in navigator) {
-        // The service worker can only be registered on http/https origins.
-        // This check prevents an error in environments that use other protocols (e.g., 'blob:').
         if (window.location.protocol.startsWith('http')) {
-            navigator.serviceWorker.register('service-worker.js').then(reg => {
+            navigator.serviceWorker.register('./service-worker.js').then(reg => {
                 reg.addEventListener('updatefound', () => {
                     newWorker = reg.installing;
                     newWorker.addEventListener('statechange', () => {
@@ -2630,6 +2643,8 @@ loadWakeLockSetting();
 </script>
 </body>
 </html>
+
+
 
 
 
