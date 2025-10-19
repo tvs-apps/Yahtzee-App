@@ -690,6 +690,17 @@ body.dark-mode .result-player-item {
     </div>
 
     <div class="settings-section">
+        <div style="flex-grow: 1;">
+            <label for="wakeLockToggle" style="font-weight: bold;">Keep Screen On</label>
+            <p style="font-size: 0.8em; color: #888; margin: 5px 0 0 0;">Prevents the screen from dimming.</p>
+        </div>
+        <label class="switch">
+            <input type="checkbox" id="wakeLockToggle" onchange="toggleWakeLock()">
+            <span class="slider round"></span>
+        </label>
+    </div>
+
+    <div class="settings-section">
         <button onclick="showRulesModal()">Game Rules & Scoring Guide</button>
     </div>
     
@@ -2228,6 +2239,29 @@ function updateStatsDashboard() {
     const { stats, hallOfFame, overallAvgScore } = calculateStats();
     activeHallOfFame = hallOfFame; // Store the HOF data for the click handler
 
+    // --- NEW LOGIC TO ORDER PLAYERS BY MOST RECENT GAME ---
+    const orderedPlayers = [];
+    const seenPlayers = new Set();
+    // Iterate backwards through history to get the most recent players first
+    for (let i = gameHistory.length - 1; i >= 0; i--) {
+        const game = gameHistory[i];
+        if (game.result) {
+            for (const playerResult of game.result) {
+                if (playerResult.name && !seenPlayers.has(playerResult.name)) {
+                    orderedPlayers.push(playerResult.name);
+                    seenPlayers.add(playerResult.name);
+                }
+            }
+        }
+    }
+    // Ensure any players who might not be in recent games (but exist in stats) are still included at the end.
+    Object.keys(stats).forEach(playerName => {
+        if (!seenPlayers.has(playerName)) {
+            orderedPlayers.push(playerName);
+        }
+    });
+    // --- END NEW LOGIC ---
+
     // Create and add the Hall of Fame button
     const hofButton = document.createElement("button");
     hofButton.innerText = "🏆 View Hall of Fame 🏆";
@@ -2258,52 +2292,55 @@ function updateStatsDashboard() {
     statsDiv.appendChild(hofContainer);
 
 
- for (const player in stats) {
-   const s = stats[player];
-   const card = document.createElement("div");
-   card.className = "stat-card";
+    // MODIFIED: Loop over the ordered list of players instead of the stats object keys.
+    orderedPlayers.forEach(player => {
+        const s = stats[player];
+        if (!s) return; // Skip if a player from history doesn't have stats for some reason
+
+        const card = document.createElement("div");
+        card.className = "stat-card";
 
 
-   const header = document.createElement("h3");
-   header.innerText = player;
+        const header = document.createElement("h3");
+        header.innerText = player;
 
 
-   const content = document.createElement("div");
-   content.style.display = "none";
+        const content = document.createElement("div");
+        content.style.display = "none";
 
 
-   const scratchCats = Object.entries(s.scratchCounts).sort((a, b) => b[1] - a[1]);
+        const scratchCats = Object.entries(s.scratchCounts).sort((a, b) => b[1] - a[1]);
   
-   content.innerHTML = `
-     <div class="stat-item"><span>Games Played:</span><span>${s.games}</span></div>
-     <div class="stat-item"><span>Wins:</span><span>${s.wins}</span></div>
-     <div class="stat-item"><span>Win %:</span><span>${((s.wins / s.games) * 100).toFixed(1)}%</span></div>
-     <div class="stat-item"><span>Longest Winning Streak:</span><span>${s.maxStreak}</span></div>
-     <div class="stat-item"><span>Longest Losing Streak:</span><span>${s.maxLosingStreak}</span></div>
-     <div class="stat-item"><span>Avg Grand Total:</span><span>${s.avgScore}</span></div>
-     <div class="stat-item"><span>Highest Score:</span><span>${s.highestScore}</span></div>
-     <div class="stat-item"><span>Highest w/o Yahtzee:</span><span>${s.highestNoYahtzee}</span></div>
-     <div class="stat-item"><span>Most Yahtzees in Game:</span><span>${s.mostYahtzees}</span></div>
-     <div class="stat-item"><span>Times Got Bonus:</span><span>${s.bonusCount}</span></div>
-     <div class="stat-item"><span>% Games w/ Yahtzee:</span><span>${((s.gamesWithYahtzee / s.games) * 100).toFixed(1)}%</span></div>
-     <div class="stat-item"><span>Top Scratch:</span><span>${scratchCats[0] ? scratchCats[0][0] + ' (' + scratchCats[0][1] + ')' : "-"}</span></div>
-     <button class="dashboard-btn" onclick="deletePlayerStats('${player}')">Delete ${player}'s Stats</button>`;
+        content.innerHTML = `
+            <div class="stat-item"><span>Games Played:</span><span>${s.games}</span></div>
+            <div class="stat-item"><span>Wins:</span><span>${s.wins}</span></div>
+            <div class="stat-item"><span>Win %:</span><span>${((s.wins / s.games) * 100).toFixed(1)}%</span></div>
+            <div class="stat-item"><span>Longest Winning Streak:</span><span>${s.maxStreak}</span></div>
+            <div class="stat-item"><span>Longest Losing Streak:</span><span>${s.maxLosingStreak}</span></div>
+            <div class="stat-item"><span>Avg Grand Total:</span><span>${s.avgScore}</span></div>
+            <div class="stat-item"><span>Highest Score:</span><span>${s.highestScore}</span></div>
+            <div class="stat-item"><span>Highest w/o Yahtzee:</span><span>${s.highestNoYahtzee}</span></div>
+            <div class="stat-item"><span>Most Yahtzees in Game:</span><span>${s.mostYahtzees}</span></div>
+            <div class="stat-item"><span>Times Got Bonus:</span><span>${s.bonusCount}</span></div>
+            <div class="stat-item"><span>% Games w/ Yahtzee:</span><span>${((s.gamesWithYahtzee / s.games) * 100).toFixed(1)}%</span></div>
+            <div class="stat-item"><span>Top Scratch:</span><span>${scratchCats[0] ? scratchCats[0][0] + ' (' + scratchCats[0][1] + ')' : "-"}</span></div>
+            <button class="dashboard-btn" onclick="deletePlayerStats('${player}')">Delete ${player}'s Stats</button>`;
 
 
-   const chartBtn = document.createElement("button");
-   chartBtn.className = "dashboard-btn";
-   chartBtn.innerText = "Show Performance Charts";
-   chartBtn.onclick = () => toggleCharts(player, { ...s, overallAvgScore }, chartBtn);
-   content.appendChild(chartBtn);
+        const chartBtn = document.createElement("button");
+        chartBtn.className = "dashboard-btn";
+        chartBtn.innerText = "Show Performance Charts";
+        chartBtn.onclick = () => toggleCharts(player, { ...s, overallAvgScore }, chartBtn);
+        content.appendChild(chartBtn);
 
 
-   card.appendChild(header);
-   card.appendChild(content);
+        card.appendChild(header);
+        card.appendChild(content);
 
 
-   header.addEventListener("click", () => { content.style.display = content.style.display === "none" ? "block" : "none"; });
-   statsDiv.appendChild(card);
- }
+        header.addEventListener("click", () => { content.style.display = content.style.display === "none" ? "block" : "none"; });
+        statsDiv.appendChild(card);
+    });
 }
 
 
@@ -2501,36 +2538,100 @@ window.addEventListener('load', () => {
     if ('serviceWorker' in navigator) {
         // The service worker can only be registered on http/https origins.
         // This check prevents an error in environments that use other protocols (e.g., 'blob:').
-        if (!['http:', 'https:'].includes(window.location.protocol)) {
-            console.warn('Service Worker registration skipped: The protocol "' + window.location.protocol + '" is not supported.');
-            return;
-        }
-
-        navigator.serviceWorker.register('./service-worker.js').then(reg => {
-            reg.addEventListener('updatefound', () => {
-                newWorker = reg.installing;
-                newWorker.addEventListener('statechange', () => {
-                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        showUpdateBar();
-                    }
+        if (window.location.protocol.startsWith('http')) {
+            navigator.serviceWorker.register('service-worker.js').then(reg => {
+                reg.addEventListener('updatefound', () => {
+                    newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            showUpdateBar();
+                        }
+                    });
                 });
+            }).catch(error => {
+                console.error('Service Worker registration failed:', error);
             });
-        }).catch(error => {
-            console.error('Service Worker registration failed:', error);
-        });
 
-        let refreshing;
-        navigator.serviceWorker.addEventListener('controllerchange', () => {
-            if (refreshing) return;
-            window.location.reload();
-            refreshing = true;
-        });
+            let refreshing;
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshing) return;
+                window.location.reload();
+                refreshing = true;
+            });
+        } else {
+            console.warn('Service Worker registration skipped: The protocol "' + window.location.protocol + '" is not supported.');
+        }
     }
 });
 
+
+// --- Screen Wake Lock ---
+let screenWakeLock = null;
+
+async function requestWakeLock() {
+  if ('wakeLock' in navigator) {
+    try {
+      screenWakeLock = await navigator.wakeLock.request('screen');
+      screenWakeLock.addEventListener('release', () => {
+        console.log('Screen Wake Lock was released');
+      });
+      console.log('Screen Wake Lock is active.');
+    } catch (err) {
+      console.error(`${err.name}, ${err.message}`);
+    }
+  } else {
+    console.log('Wake Lock API not supported.');
+  }
+}
+
+async function releaseWakeLock() {
+  if (screenWakeLock !== null) {
+    await screenWakeLock.release();
+    screenWakeLock = null;
+    console.log('Screen Wake Lock released.');
+  }
+}
+
+function toggleWakeLock() {
+  const isChecked = document.getElementById('wakeLockToggle').checked;
+  if (isChecked) {
+    requestWakeLock();
+    localStorage.setItem('keepScreenOn', 'true');
+  } else {
+    releaseWakeLock();
+    localStorage.setItem('keepScreenOn', 'false');
+  }
+}
+
+function loadWakeLockSetting() {
+  const keepScreenOn = localStorage.getItem('keepScreenOn');
+  if (keepScreenOn === 'true') {
+    document.getElementById('wakeLockToggle').checked = true;
+    requestWakeLock();
+  }
+}
+
+// Re-acquire the wake lock if returning to the tab
+async function handleVisibilityChange() {
+  if (screenWakeLock === null && document.visibilityState === 'visible') {
+    const keepScreenOn = localStorage.getItem('keepScreenOn');
+    if (keepScreenOn === 'true') {
+        console.log('Re-acquiring wake lock on visibility change.');
+        await requestWakeLock();
+    }
+  }
+}
+
+document.addEventListener('visibilitychange', handleVisibilityChange);
+
+// Load settings on startup
+loadTheme();
+loadWakeLockSetting();
 </script>
 </body>
 </html>
+
+
 
 
 
