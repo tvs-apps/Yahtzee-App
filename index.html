@@ -342,6 +342,22 @@
  .settings-section button.danger {
     background: var(--color-below);
  }
+ .player-color-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 8px 0;
+ }
+ .player-color-item input[type="color"] {
+    width: 44px;
+    height: 44px;
+    border: none;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+ }
+
 
 /* Toggle Switch CSS */
 .switch {
@@ -792,6 +808,11 @@ body.dark-mode .die-dot {
             <span class="slider round"></span>
         </label>
     </div>
+    
+    <div class="settings-section">
+        <h3>Player Colors</h3>
+        <div id="playerColorSettings" style="width: 100%;"></div>
+    </div>
 
     <div class="settings-section">
         <button onclick="showRulesModal()">Game Rules & Scoring Guide</button>
@@ -1064,6 +1085,11 @@ function randomColor() {
  return `rgb(${r},${g},${b})`;
 }
 
+function getPlayerColor(playerName) {
+    const playerColors = JSON.parse(localStorage.getItem('playerColors') || '{}');
+    return playerColors[playerName] || randomColor();
+}
+
 
 function addPlayer() {
  const name = document.getElementById("playerName").value.trim();
@@ -1071,7 +1097,7 @@ function addPlayer() {
  if (players.some(p => p.name === name)) return showAlert("Error", `Player "${name}" is already added.`);
 
 
- players.push({name, scores: {}, locked: {}, color: randomColor(), yahtzeeBonusCount: 0});
+ players.push({name, scores: {}, locked: {}, color: getPlayerColor(name), yahtzeeBonusCount: 0});
  document.getElementById("playerName").value = "";
  renderPlayerList();
  document.getElementById("startGameBtn").disabled = players.length === 0;
@@ -1150,7 +1176,7 @@ function startGame(keepPlayers = false) {
  if (!keepPlayers) {
    // If starting a brand new game, re-initialize player scores
    players = players.map(p => ({
-     name: p.name, scores: {}, locked: {}, color: p.color, yahtzeeBonusCount: 0
+     name: p.name, scores: {}, locked: {}, color: getPlayerColor(p.name), yahtzeeBonusCount: 0
    }));
  }
  turnMode = true;
@@ -1688,8 +1714,9 @@ function startNewGameWithSamePlayers() {
     // Keep player objects but reset scores/locks/bonuses
     const currentPlayers = lastFinishedGamePlayers.length > 0 ? lastFinishedGamePlayers : players;
     players = currentPlayers.map(p => ({
-        name: p.name, scores: {}, locked: {}, color: p.color, yahtzeeBonusCount: 0
+        name: p.name, scores: {}, locked: {}, color: getPlayerColor(p.name), yahtzeeBonusCount: 0
     }));
+    lastFinishedGamePlayers = []; // FIX: Clear the last game data
     startGame(true); // startGame(true) re-initializes and starts
 }
 
@@ -1810,7 +1837,7 @@ function calculateStats() {
      const s = stats[p.name];
      s.games++;
      totalGamesCounted++;
-     totalAllPoints += p.total;
+     s.totalScore += p.total;
 
      if (playersWithScores.length > 1) {
         const isWinner = p.total === winnersScore;
@@ -1981,7 +2008,7 @@ function viewHistoricalScoreCard(name, total, date, scores) {
                acc[cat] = true;
                return acc;
            }, {}),
-           color: randomColor(),
+           color: getPlayerColor(name),
            yahtzeeBonusCount: Math.floor((scores["Yahtzee Bonus"] || 0) / 100),
            manual: false
        };
@@ -2306,10 +2333,10 @@ function toggleCharts(playerName, stats, button) {
 
 function updateStatsDashboard() {
     const statsDiv = document.getElementById("statsDashboard");
-    statsDiv.innerHTML = ""; // Clear existing stats
+    statsDiv.innerHTML = "";
 
     const { stats, hallOfFame, overallAvgScore } = calculateStats();
-    activeHallOfFame = hallOfFame; // Store the HOF data for the click handler
+    activeHallOfFame = hallOfFame;
     
     // Sort game history by date to ensure recent players are first
     gameHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -2425,6 +2452,7 @@ function showSettings() {
     document.getElementById('playerSetup').style.display = 'none';
     document.getElementById('statsDashboard').style.display = 'none';
     document.getElementById('settingsPage').style.display = 'flex';
+    renderPlayerColorSettings();
 }
 
 function hideSettings() {
@@ -2791,6 +2819,35 @@ function calculatePotentialScores(diceValues) {
     return scores;
 }
 
+// --- Player Color Settings ---
+function renderPlayerColorSettings() {
+    const container = document.getElementById('playerColorSettings');
+    container.innerHTML = '';
+    const uniquePlayers = [...new Set(gameHistory.flatMap(g => g.result.map(p => p.name)))];
+    
+    if (uniquePlayers.length === 0) {
+        container.innerHTML = '<p style="text-align: center; color: #888;">Play a game to see players here.</p>';
+        return;
+    }
+    
+    uniquePlayers.forEach(name => {
+        const color = getPlayerColor(name);
+        const item = document.createElement('div');
+        item.className = 'player-color-item';
+        item.innerHTML = `
+            <span>${name}</span>
+            <input type="color" value="${color}" onchange="savePlayerColor('${name}', this.value)">
+        `;
+        container.appendChild(item);
+    });
+}
+
+function savePlayerColor(playerName, color) {
+    const playerColors = JSON.parse(localStorage.getItem('playerColors') || '{}');
+    playerColors[playerName] = color;
+    localStorage.setItem('playerColors', JSON.stringify(playerColors));
+}
+
 
 // Load all settings on startup
 loadTheme();
@@ -2799,6 +2856,8 @@ loadVirtualDiceSetting();
 </script>
 </body>
 </html>
+
+
 
 
 
