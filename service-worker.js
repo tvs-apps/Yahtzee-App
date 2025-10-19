@@ -1,5 +1,5 @@
 // A version number is used to bust the cache when you deploy new updates.
-const CACHE_NAME = 'yahtzee-scorekeeper-v1';
+const CACHE_NAME = 'yahtzee-scorekeeper-v1.1';
 
 // A list of files to cache for offline use.
 const FILES_TO_CACHE = [
