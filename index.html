@@ -144,6 +144,15 @@
  .quick-buttons button:hover {
    background: rgba(255,255,255,0.4);
  }
+ .score-hint {
+    color: #bbb;
+    font-style: italic;
+    cursor: pointer;
+ }
+ body.dark-mode .score-hint {
+    color: #666;
+ }
+
  /* Conditional Coloring for Upper Section Scores */
  .score-above { background-color: rgba(76, 175, 80, 0.7); } /* Green */
  .score-below { background-color: rgba(244, 67, 54, 0.7); } /* Red */
@@ -986,6 +995,7 @@ let dice = [
     { value: 4, kept: false }, { value: 5, kept: false }
 ];
 let rollsLeft = 3;
+let potentialScores = null; // Will hold calculated scores after rolling
 
 
 // --- Helper Functions ---
@@ -1172,130 +1182,108 @@ function startGame(keepPlayers = false) {
 
 // --- Scorecard Rendering (Updated for Bonus Tracker & Totals) ---
 function renderPlayerCard(animateCard = true, idx = displayPlayerIndex, forModal = false) {
- const container = forModal ? document.getElementById("historicalScoreCard") : document.getElementById("playerCardContainer");
- const playerSource = lastFinishedGamePlayers.length > 0 ? lastFinishedGamePlayers : players; // Use the correct player data source
- const player = playerSource[idx];
- const isCurrentTurn = idx === currentPlayerIndex;
-  // Prevent rendering full card for manual history entries inside the view modal
- if (forModal && player.manual) return;
-  const card = document.createElement("div");
- card.className = "score-card";
- card.style.background = player.color;
-  // 1. Swiping animation: only for multi-player and new turn transitions
- if (animateCard && players.length > 1 && isCurrentTurn && !forModal) {
-   card.classList.add("player-card-transition");
- }
+    const container = forModal ? document.getElementById("historicalScoreCard") : document.getElementById("playerCardContainer");
+    const playerSource = lastFinishedGamePlayers.length > 0 ? lastFinishedGamePlayers : players;
+    const player = playerSource[idx];
+    const isCurrentTurn = idx === currentPlayerIndex;
 
+    if (forModal && player.manual) return;
 
- card.innerHTML = `<h2>${player.name}${isCurrentTurn && !forModal && turnMode ? '<span class="turn-indicator"></span>' : ''}</h2>`;
-  let upperTotal = 0;
- let bonusTrackerScore = 0;
+    const card = document.createElement("div");
+    card.className = "score-card";
+    card.style.background = player.color;
 
+    if (animateCard && players.length > 1 && isCurrentTurn && !forModal) {
+        card.classList.add("player-card-transition");
+    }
 
- categories.forEach(cat => {
-   const locked = player.locked[cat] || forModal;
-   const row = document.createElement("div");
-   row.className = "category-row" + (locked ? " locked" : "");
-   let inner = `<div class="category-label">${cat}</div>`;
-   const scoreVal = player.scores[cat] || 0;
+    card.innerHTML = `<h2>${player.name}${isCurrentTurn && !forModal && turnMode ? '<span class="turn-indicator"></span>' : ''}</h2>`;
+    let upperTotal = 0;
+    let bonusTrackerScore = 0;
 
+    categories.forEach(cat => {
+        const locked = player.locked[cat] || forModal;
+        const row = document.createElement("div");
+        row.className = "category-row" + (locked ? " locked" : "");
+        let inner = `<div class="category-label">${cat}</div>`;
+        const scoreVal = player.scores[cat] || 0;
 
-   // UPPER SECTION Logic (Aces to Sixes)
-   if (upperCats.includes(cat)) {
-     const num = upperCats.indexOf(cat) + 1; // 1 to 6
-     const expectedScore = num * 3;
-    
-     upperTotal += scoreVal;
-    
-     // Calculate deviation for Bonus Tracker only if scored/locked
-     if (locked) {
-         bonusTrackerScore += (scoreVal - expectedScore);
-     }
+        if (upperCats.includes(cat)) {
+            upperTotal += scoreVal;
+            if (locked) {
+                bonusTrackerScore += (scoreVal - (upperCats.indexOf(cat) + 1) * 3);
+            }
+        }
 
+        if (locked) {
+            inner += `<div>${scoreVal}</div>`;
+        } else if (virtualDiceMode && potentialScores && rollsLeft < 3) {
+            const potential = potentialScores[cat];
+            inner += `<div class="quick-buttons">
+                        <button onclick="updateScore('${cat}', ${potential})">${potential}</button>
+                        <button onclick="updateScore('${cat}', 0)">Scratch</button>
+                      </div>`;
+            inner += `<span class="score-hint" onclick="updateScore('${cat}', ${potential})">${potential}</span>`;
+        } else if (!virtualDiceMode) {
+             if (upperCats.includes(cat)) {
+                const num = upperCats.indexOf(cat) + 1;
+                const expectedScore = num * 3;
+                inner += `<div class="quick-buttons">${[1, 2, 3, 4, 5].map(mult => {
+                    const val = mult * num;
+                    const btnClass = val > expectedScore ? 'score-above' : (val < expectedScore ? 'score-below' : 'score-on-track');
+                    return `<button class="${btnClass}" onclick="updateScore('${cat}',${val})">${val}</button>`;
+                }).join('')}</div>`;
+                inner += `<button onclick="updateScore('${cat}',0)">Scratch</button>`;
+            } else if (["3 of a Kind", "4 of a Kind", "Chance"].includes(cat)) {
+                let options = "<option value=''>--</option>";
+                for (let i = 0; i <= 30; i++) options += `<option value="${i}">${i}</option>`;
+                inner += `<select onchange="updateScore('${cat}',this.value)">${options}</select>`;
+                if (cat !== "Chance") inner += `<button onclick="updateScore('${cat}',0)">Scratch</button>`;
+            } else if (fixedValueCategories[cat]) {
+                inner += `<div class="quick-buttons">${fixedValueCategories[cat].map(v => `<button onclick="updateScore('${cat}',${v})">${v}</button>`).join('')}<button onclick="updateScore('${cat}',0)">Scratch</button></div>`;
+            }
+        }
+        
+        if (cat === "Yahtzee Bonus") {
+            let xMarks = "X".repeat(player.yahtzeeBonusCount || 0);
+            if (player.locked["Yahtzee"] !== true || yahtzeeBonusUsedThisTurn || locked) {
+                inner = `<div class="category-label">${cat}</div><div>${scoreVal} ${xMarks} (locked)</div>`;
+            } else {
+                inner = `<div class="category-label">${cat}</div><button onclick="incrementYahtzeeBonus()">+100</button> <span>${xMarks}</span>`;
+            }
+        }
 
-     let scoreClass = 'score-on-track';
-     if (scoreVal > expectedScore) { scoreClass = 'score-above'; }
-     else if (scoreVal < expectedScore) { scoreClass = 'score-below'; }
+        row.innerHTML = inner;
+        card.appendChild(row);
 
+        if (cat === "Sixes") {
+            const bonusValue = upperTotal >= UPPER_BONUS_THRESHOLD ? 35 : 0;
+            const upperSummaryHTML = `
+                <div class="bonus-tracker" style="display: flex; justify-content: space-around; gap: 5px; margin-top: 10px; padding: 10px 0; border-top: 2px solid var(--border-color); border-bottom: 2px solid var(--border-color); background: rgba(0,0,0,0.3);">
+                    <div style="flex: 1; text-align: center;">Upper Score: <strong>${upperTotal}</strong></div>
+                    <div style="flex: 1; text-align: center; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color);">
+                        Tracker: <span class="${bonusTrackerScore >= 0 ? 'positive' : 'negative'}">${bonusTrackerScore > 0 ? '+' : ''}${bonusTrackerScore}</span>
+                    </div>
+                    <div style="flex: 1; text-align: center;">Bonus: <strong>${bonusValue}</strong></div>
+                </div>`;
+            card.lastElementChild.insertAdjacentHTML('afterend', upperSummaryHTML);
+        }
+    });
 
-     if (locked) {
-       inner += `<div class="${scoreClass}" style="padding: 0 10px; border-radius: 4px;">${scoreVal}</div>`;
-     } else {
-       inner += `<div class="quick-buttons">${[1, 2, 3, 4, 5].map(mult => {
-         const val = mult * num;
-         const btnClass = val > expectedScore ? 'score-above' : (val < expectedScore ? 'score-below' : 'score-on-track');
-         return `<button class="${btnClass}" onclick="updateScore('${cat}',${val})">${val}</button>`;
-       }).join('')}</div>`;
-       inner += `<button onclick="updateScore('${cat}',0)">Scratch</button>`;
-     }
-   }
-   // LOWER SECTION Logic
-   else if (["3 of a Kind", "4 of a Kind", "Chance"].includes(cat)) {
-       if (locked) { inner += `<div>${scoreVal}</div>`; }
-       else {
-           let options = "<option value=''>--</option>";
-           const max = cat === "Chance" ? 30 : 30;
-           for (let i = 0; i <= max; i++) options += `<option value="${i}">${i}</option>`;
-           inner += `<select onchange="updateScore('${cat}',this.value)">${options}</select>`;
-           if (cat !== "Chance") { inner += `<button onclick="updateScore('${cat}',0)">Scratch</button>`; }
-       }
-   } else if (fixedValueCategories[cat]) {
-     if (locked) { inner += `<div>${scoreVal}</div>`; }
-     else { inner += `<div class="quick-buttons">${fixedValueCategories[cat].map(v => `<button onclick="updateScore('${cat}',${v})">${v}</button>`).join('')}<button onclick="updateScore('${cat}',0)">Scratch</button></div>`; }
-   } else if (cat === "Yahtzee Bonus") {
-     let xMarks = "X".repeat(player.yahtzeeBonusCount || 0);
-     if (player.locked["Yahtzee"] !== true || yahtzeeBonusUsedThisTurn || locked) {
-       inner += `<div>${scoreVal} ${xMarks} (locked)</div>`;
-     } else {
-       inner += `<button onclick="incrementYahtzeeBonus()">+100</button> <span>${xMarks}</span>`;
-     }
-   }
+    const bonusValue = upperTotal >= UPPER_BONUS_THRESHOLD ? 35 : 0;
+    const lowerTotal = lowerCats.reduce((s, c) => s + (player.scores[c] || 0), 0) + (player.scores["Yahtzee Bonus"] || 0);
+    const grandTotal = upperTotal + bonusValue + lowerTotal;
+    const totalsDiv = document.createElement("div");
+    totalsDiv.className = "totals";
+    totalsDiv.innerText = `Upper: ${upperTotal + bonusValue} | Lower: ${lowerTotal} | Grand: ${grandTotal}`;
+    card.appendChild(totalsDiv);
 
-
-   row.innerHTML = inner;
-   card.appendChild(row);
-  
-   // Insert the Upper Section Summary after the "Sixes" row
-   if (cat === "Sixes") {
-       const bonusValue = upperTotal >= UPPER_BONUS_THRESHOLD ? 35 : 0;
-       const upperSummaryHTML = `
-           <div class="bonus-tracker" style="display: flex; justify-content: space-around; gap: 5px; margin-top: 10px; padding: 10px 0; border-top: 2px solid var(--border-color); border-bottom: 2px solid var(--border-color); background: rgba(0,0,0,0.3);">
-               <div style="flex: 1; text-align: center;">
-                   Upper Score: <strong>${upperTotal}</strong>
-               </div>
-               <div style="flex: 1; text-align: center; border-left: 1px solid var(--border-color); border-right: 1px solid var(--border-color);">
-                   Tracker:
-                   <span class="${bonusTrackerScore >= 0 ? 'positive' : 'negative'}">
-                       ${bonusTrackerScore > 0 ? '+' : ''}${bonusTrackerScore}
-                   </span>
-               </div>
-               <div style="flex: 1; text-align: center;">
-                   Bonus: <strong>${bonusValue}</strong>
-               </div>
-           </div>
-       `;
-       // Use insertAdjacentHTML to place it exactly after the row
-       card.lastElementChild.insertAdjacentHTML('afterend', upperSummaryHTML);
-   }
- });
-
-
- // Calculate and display final totals (Simplified)
- const bonusValue = upperTotal >= UPPER_BONUS_THRESHOLD ? 35 : 0;
- const lowerTotal = lowerCats.reduce((s, c) => s + (player.scores[c] || 0), 0) + (player.scores["Yahtzee Bonus"] || 0);
- const grandTotal = upperTotal + bonusValue + lowerTotal;
-  const totalsDiv = document.createElement("div");
- totalsDiv.className = "totals";
- totalsDiv.innerText = `Upper: ${upperTotal + bonusValue} | Lower: ${lowerTotal} | Grand: ${grandTotal}`;
- card.appendChild(totalsDiv);
-
-
- if (!forModal) {
-   container.innerHTML = "";
-   updateRunningTotals();
-   card.innerHTML += `<button onclick="undoScore()">Undo Last Input</button>`;
- }
- container.appendChild(card);
+    if (!forModal) {
+        container.innerHTML = "";
+        updateRunningTotals();
+        card.innerHTML += `<button onclick="undoScore()">Undo Last Input</button>`;
+    }
+    container.appendChild(card);
 }
 
 
@@ -1792,6 +1780,8 @@ function calculateStats() {
  let totalAllPoints = 0; // For overall average score
  let totalGamesCounted = 0;
 
+ // FIX: Ensure game history is sorted by date before processing
+ gameHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
 
  gameHistory.forEach(game => {
    const playersWithScores = game.result.map(p => ({
@@ -2320,20 +2310,24 @@ function updateStatsDashboard() {
 
     const { stats, hallOfFame, overallAvgScore } = calculateStats();
     activeHallOfFame = hallOfFame; // Store the HOF data for the click handler
+    
+    // Sort game history by date to ensure recent players are first
+    gameHistory.sort((a, b) => new Date(b.date) - new Date(a.date));
 
     const orderedPlayers = [];
     const seenPlayers = new Set();
-    for (let i = gameHistory.length - 1; i >= 0; i--) {
-        const game = gameHistory[i];
+    
+    gameHistory.forEach(game => {
         if (game.result) {
-            for (const playerResult of game.result) {
+            game.result.forEach(playerResult => {
                 if (playerResult.name && !seenPlayers.has(playerResult.name)) {
                     orderedPlayers.push(playerResult.name);
                     seenPlayers.add(playerResult.name);
                 }
-            }
+            });
         }
-    }
+    });
+
     Object.keys(stats).forEach(playerName => {
         if (!seenPlayers.has(playerName)) {
             orderedPlayers.push(playerName);
@@ -2740,11 +2734,15 @@ function rollDice() {
         }
     });
 
-    // We need a slight delay for the animation to be seen before the re-render.
     setTimeout(() => {
         renderDice();
         document.getElementById('rolls-left').innerText = `Rolls Left: ${rollsLeft}`;
         document.getElementById('roll-dice-btn').disabled = rollsLeft === 0;
+        
+        if (rollsLeft === 0) {
+            potentialScores = calculatePotentialScores(dice.map(d => d.value));
+            renderPlayerCard(false); // Re-render to show hints
+        }
     }, 100);
 }
 
@@ -2758,10 +2756,41 @@ function toggleKeepDie(index) {
 function resetDiceRoller() {
     dice.forEach(die => die.kept = false);
     rollsLeft = 3;
+    potentialScores = null; // Clear potential scores
     document.getElementById('rolls-left').innerText = `Rolls Left: ${rollsLeft}`;
     document.getElementById('roll-dice-btn').disabled = false;
     renderDice();
 }
+
+function calculatePotentialScores(diceValues) {
+    const scores = {};
+    const counts = diceValues.reduce((acc, val) => {
+        acc[val] = (acc[val] || 0) + 1;
+        return acc;
+    }, {});
+    const sum = diceValues.reduce((a, b) => a + b, 0);
+
+    // Upper Section
+    for (let i = 1; i <= 6; i++) {
+        scores[upperCats[i-1]] = (counts[i] || 0) * i;
+    }
+
+    // Lower Section
+    const countsValues = Object.values(counts);
+    scores['3 of a Kind'] = countsValues.some(c => c >= 3) ? sum : 0;
+    scores['4 of a Kind'] = countsValues.some(c => c >= 4) ? sum : 0;
+    scores['Full House'] = countsValues.includes(3) && countsValues.includes(2) ? 25 : 0;
+    scores['Yahtzee'] = countsValues.some(c => c >= 5) ? 50 : 0;
+    scores['Chance'] = sum;
+
+    // Straights
+    const uniqueDice = [...new Set(diceValues)].sort().join('');
+    scores['Large Straight'] = /12345|23456/.test(uniqueDice) ? 40 : 0;
+    scores['Small Straight'] = /1234|2345|3456/.test(uniqueDice) ? 30 : 0;
+
+    return scores;
+}
+
 
 // Load all settings on startup
 loadTheme();
@@ -2770,6 +2799,8 @@ loadVirtualDiceSetting();
 </script>
 </body>
 </html>
+
+
 
 
 
